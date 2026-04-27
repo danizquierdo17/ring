@@ -1,20 +1,28 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { Suspense } from "react";
+import { ActivityIndicator, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { SQLiteProvider } from "expo-sqlite";
 
-export default function App() {
+import { initializeDatabase } from "./src/infra/db/client";
+import { HomeScreen } from "./src/features/cycle/ui/HomeScreen";
+
+function DBLoadingFallback() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <ActivityIndicator size="large" color="#4f46e5" />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default function App() {
+  return (
+    <>
+      <StatusBar style="auto" />
+      <SQLiteProvider databaseName="ringcare.db" onInit={initializeDatabase}>
+        <Suspense fallback={<DBLoadingFallback />}>
+          <HomeScreen />
+        </Suspense>
+      </SQLiteProvider>
+    </>
+  );
+}
