@@ -1,4 +1,7 @@
 import { ok, err, type Result } from "../../../shared/result";
+import type { AppError } from "../../../shared/errors";
+
+export type { AppError };
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -27,14 +30,6 @@ export type Cycle = {
   readonly notes: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
-};
-
-export type AppError = {
-  readonly code:
-    | "CYCLE_ALREADY_ACTIVE"
-    | "CYCLE_NOT_ACTIVE"
-    | "INVALID_DATE";
-  readonly message: string;
 };
 
 // ---------------------------------------------------------------------------

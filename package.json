@@ -13,9 +13,12 @@
   "jest": {
     "projects": [
       {
-        "displayName": "domain",
+        "displayName": "pure",
         "testEnvironment": "node",
-        "testMatch": ["<rootDir>/src/**/domain/**/*.test.ts"],
+        "testMatch": [
+          "<rootDir>/src/**/domain/**/*.test.ts",
+          "<rootDir>/src/**/data/**/*.test.ts"
+        ],
         "transform": {
           "^.+\\.tsx?$": ["babel-jest", { "presets": ["babel-preset-expo"] }]
         }
@@ -24,7 +27,11 @@
         "displayName": "rn",
         "preset": "jest-expo",
         "testMatch": ["<rootDir>/src/**/*.test.{ts,tsx}"],
-        "testPathIgnorePatterns": ["/node_modules/", "/src/.*/domain/.*\\.test\\.ts$"],
+        "testPathIgnorePatterns": [
+          "/node_modules/",
+          "/src/.*/domain/.*\\.test\\.ts$",
+          "/src/.*/data/.*\\.test\\.ts$"
+        ],
         "transformIgnorePatterns": [
           "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native|react-native-calendars)"
         ]
