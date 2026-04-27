@@ -11,9 +11,24 @@
     "test:watch": "jest"
   },
   "jest": {
-    "preset": "jest-expo",
-    "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native|react-native-calendars)"
+    "projects": [
+      {
+        "displayName": "domain",
+        "testEnvironment": "node",
+        "testMatch": ["<rootDir>/src/**/domain/**/*.test.ts"],
+        "transform": {
+          "^.+\\.tsx?$": ["babel-jest", { "presets": ["babel-preset-expo"] }]
+        }
+      },
+      {
+        "displayName": "rn",
+        "preset": "jest-expo",
+        "testMatch": ["<rootDir>/src/**/*.test.{ts,tsx}"],
+        "testPathIgnorePatterns": ["/node_modules/", "/src/.*/domain/.*\\.test\\.ts$"],
+        "transformIgnorePatterns": [
+          "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native|react-native-calendars)"
+        ]
+      }
     ]
   },
   "dependencies": {
@@ -38,6 +53,7 @@
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^30.0.0",
     "@types/react": "~19.1.0",
+    "babel-preset-expo": "^55.0.18",
     "jest": "^30.3.0",
     "jest-expo": "^55.0.16",
     "typescript": "~5.9.2"
