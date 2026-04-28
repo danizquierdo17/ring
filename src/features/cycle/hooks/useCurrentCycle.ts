@@ -8,6 +8,7 @@ import { isOk } from "../../../shared/result";
 import type { Result } from "../../../shared/result";
 import type { AppError } from "../../../shared/errors";
 import type { Cycle, Regimen } from "../domain/cycleStateMachine";
+import { reconcileNotifications } from "../../notifications/hooks/useNotificationsReconciliation";
 
 // En Fase 3 se leerá de settingsRepo.get('regimen.default')
 const DEFAULT_REGIMEN: Regimen = "CYCLIC_21_7";
@@ -34,6 +35,7 @@ export function useCurrentCycle() {
   /**
    * Inserta un nuevo anillo. `now` se captura en el momento de la llamada,
    * no en el render, para evitar bugs con la app en segundo plano.
+   * Después de insertar, reconcilia notificaciones en background.
    */
   const insertRingAction = useCallback((): Result<Cycle, AppError> => {
     const now = new Date().toISOString();
@@ -50,6 +52,8 @@ export function useCurrentCycle() {
 
     if (isOk(repoResult)) {
       _setCycle(repoResult.value, now);
+      // Reconcile notifications in background (fire and forget)
+      void reconcileNotifications(db);
     }
 
     return repoResult;
@@ -57,6 +61,7 @@ export function useCurrentCycle() {
 
   /**
    * Retira el anillo activo. `now` se captura al ejecutar la acción.
+   * Después de retirar, reconcilia notificaciones en background.
    */
   const removeRingAction = useCallback((): Result<Cycle, AppError> => {
     const now = new Date().toISOString();
@@ -75,6 +80,8 @@ export function useCurrentCycle() {
 
     if (isOk(repoResult)) {
       _setCycle(repoResult.value, now);
+      // Reconcile notifications in background (fire and forget)
+      void reconcileNotifications(db);
     }
 
     return repoResult;

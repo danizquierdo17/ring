@@ -1,37 +1,29 @@
 import { useEffect } from "react";
 import { useSQLiteContext } from "expo-sqlite";
+import type { SQLiteDatabase } from "expo-sqlite";
 
 import { getActiveCycle } from "../../cycle/data/cyclesRepo";
 import { planNotifications } from "../domain/notificationPlanner";
 import { scheduleAll, cancelByIds, getScheduledIds } from "../infra/scheduler";
 
 // ---------------------------------------------------------------------------
-// useNotificationsReconciliation
-//
-// Called once on app mount (from App.tsx). Compares:
-//   - what notifications SHOULD exist (from the active cycle + planner)
-//   - what notifications ARE scheduled (from expo-notifications)
-//
-// Then cancels stale ones and schedules missing ones.
-//
-// Permission is requested JIT inside scheduleAll — never on app boot.
-// A PERMISSION_DENIED result is swallowed here; a UI banner is a future task.
+// Utilities
 // ---------------------------------------------------------------------------
 
 function getUtcOffsetMinutes(): number {
   return -new Date().getTimezoneOffset();
 }
 
-export function useNotificationsReconciliation(): void {
-  const db = useSQLiteContext();
+// ---------------------------------------------------------------------------
+// reconcileNotifications — public, can be called from anywhere
+//
+// Compares expected (from active cycle + planner) vs actual (from expo-notifications).
+// Cancels stale ones and schedules missing ones.
+// Permission is requested JIT inside scheduleAll — never on app boot.
+// Errors (PERMISSION_DENIED) are swallowed; banner is a future feature.
+// ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    void reconcile(db);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-}
-
-async function reconcile(db: ReturnType<typeof useSQLiteContext>): Promise<void> {
+export async function reconcileNotifications(db: SQLiteDatabase): Promise<void> {
   const cycleResult = getActiveCycle(db);
   if (!cycleResult.ok) return;
 
@@ -60,4 +52,19 @@ async function reconcile(db: ReturnType<typeof useSQLiteContext>): Promise<void>
     await scheduleAll(expected);
     // PERMISSION_DENIED is swallowed — UI banner handled in a future feature
   }
+}
+
+// ---------------------------------------------------------------------------
+// useNotificationsReconciliation
+//
+// Hook called once on app mount (from App.tsx) to reconcile on startup.
+// ---------------------------------------------------------------------------
+
+export function useNotificationsReconciliation(): void {
+  const db = useSQLiteContext();
+
+  useEffect(() => {
+    void reconcileNotifications(db);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 }
