@@ -20,8 +20,10 @@ export type EventRow = {
 };
 
 export type SettingsRow = {
-  key: string;
-  value: string;
+  id: 1; // Single row per design
+  regimen: string;
+  continuous_days: number;
+  created_at: string;
   updated_at: string;
 };
 

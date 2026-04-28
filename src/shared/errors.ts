@@ -4,7 +4,9 @@ export type AppErrorCode =
   | "CYCLE_NOT_FOUND"
   | "INVALID_DATE"
   | "DB_ERROR"
-  | "PERMISSION_DENIED";
+  | "PERMISSION_DENIED"
+  | "INVALID_REGIMEN"
+  | "INVALID_CONTINUOUS_DAYS";
 
 export type AppError = {
   readonly code: AppErrorCode;
