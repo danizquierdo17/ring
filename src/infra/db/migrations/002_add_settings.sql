@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS Settings;
 -- Tabla Settings — almacena preferencias globales del usuario.
 -- Una sola fila (id = 1 por convención).
 CREATE TABLE IF NOT EXISTS Settings (

@@ -5,6 +5,7 @@ import { SQLiteProvider } from "expo-sqlite";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ActionSheetProvider } from "@expo/react-native-action-sheet";
 import { Home, CalendarDays, Settings } from "lucide-react-native";
 
 // lucide-react-native types resolve to the web SVG types in this project's TS
@@ -16,6 +17,7 @@ const CalendarIcon = CalendarDays as React.ComponentType<any>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const SettingsIcon = Settings as React.ComponentType<any>;
 
+import { C } from "./src/shared/theme/colors";
 import { initializeDatabase } from "./src/infra/db/client";
 import { HomeScreen } from "./src/features/cycle/ui/HomeScreen";
 import { CalendarScreen } from "./src/features/calendar/ui/CalendarScreen";
@@ -42,7 +44,7 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 function DBLoadingFallback() {
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <ActivityIndicator size="large" color="#4f46e5" />
+      <ActivityIndicator size="large" color={C.indigo} />
     </View>
   );
 }
@@ -66,11 +68,11 @@ function RootTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#4f46e5",
-        tabBarInactiveTintColor: "#9ca3af",
+        tabBarActiveTintColor: C.indigo,
+        tabBarInactiveTintColor: C.slate400,
         tabBarStyle: {
-          borderTopColor: "#e5e7eb",
-          backgroundColor: "#ffffff",
+          borderTopColor: C.slate100,
+          backgroundColor: C.white,
         },
       }}
     >
@@ -116,17 +118,19 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="auto" />
-      <SQLiteProvider
-        databaseName="ringcare.db"
-        onInit={async (db) => initializeDatabase(db)}
-      >
-        <Suspense fallback={<DBLoadingFallback />}>
-          {/* <NotificationsInit /> */}
-          <NavigationContainer>
-            <RootTabs />
-          </NavigationContainer>
-        </Suspense>
-      </SQLiteProvider>
+      <ActionSheetProvider>
+        <SQLiteProvider
+          databaseName="ringcare.db"
+          onInit={async (db) => initializeDatabase(db)}
+        >
+          <Suspense fallback={<DBLoadingFallback />}>
+            {/* <NotificationsInit /> */}
+            <NavigationContainer>
+              <RootTabs />
+            </NavigationContainer>
+          </Suspense>
+        </SQLiteProvider>
+      </ActionSheetProvider>
     </SafeAreaProvider>
   );
 }

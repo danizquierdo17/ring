@@ -170,3 +170,36 @@ export function calcDayOfCycle(insertedAt: string, now: string): number {
   const diffMs = nowMidnight - insertedMidnight;
   return Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
 }
+
+// ---------------------------------------------------------------------------
+// calcEarlyLateWarning
+// ---------------------------------------------------------------------------
+
+export type RemovalWarning =
+  | { kind: 'EARLY'; hoursEarly: number }
+  | { kind: 'LATE';  hoursLate: number }
+  | null;
+
+/**
+ * Returns a warning if the selected removal datetime deviates more than
+ * `thresholdHours` from the planned removal time.
+ * Returns null when removal is within the acceptable window.
+ */
+export function calcEarlyLateWarning(
+  plannedRemovalAt: string,
+  selectedAt: string,
+  thresholdHours = 12,
+): RemovalWarning {
+  const planned  = new Date(plannedRemovalAt).getTime();
+  const selected = new Date(selectedAt).getTime();
+  const diffMs   = selected - planned;
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  if (diffHours < -thresholdHours) {
+    return { kind: 'EARLY', hoursEarly: Math.round(-diffHours) };
+  }
+  if (diffHours > thresholdHours) {
+    return { kind: 'LATE', hoursLate: Math.round(diffHours) };
+  }
+  return null;
+}

@@ -71,10 +71,11 @@ describe("notificationPlanner — IDs deterministas", () => {
     expect(ids).toContain(`removal-cycle-abc-0h`);
   });
 
-  it("genera ID de insertion para COMPLETED CYCLIC_21_7", () => {
+  it("genera IDs de insertion para COMPLETED CYCLIC_21_7", () => {
     const notifs = planNotifications(COMPLETED_CYCLIC, 0);
     const ids = notifs.map((n) => n.id);
     expect(ids).toContain(`insertion-cycle-def-24h`);
+    expect(ids).toContain(`insertion-cycle-def-0h`);
   });
 
   it("no duplica IDs — todos son únicos", () => {
@@ -142,26 +143,37 @@ describe("notificationPlanner — ciclo ACTIVE", () => {
 // ---------------------------------------------------------------------------
 
 describe("notificationPlanner — COMPLETED CYCLIC_21_7", () => {
-  // removedAt = 2025-01-21T18:00:00.000Z → free window ends Jan 28
-  // T-24h de reinserción = Jan 27 at 09:00 UTC+0 = 2025-01-27T09:00:00.000Z
+  // removedAt = 2025-01-21T18:00:00.000Z
+  // plannedInsertionAt = Jan 21 UTC midnight + 7 days = Jan 28
+  // T-24h (insertion-24h) = Jan 27 at 09:00 UTC+0 = 2025-01-27T09:00:00.000Z
+  // T-0h  (insertion-0h)  = Jan 28 at 09:00 UTC+0 = 2025-01-28T09:00:00.000Z
 
-  it("planifica aviso de reinserción T-24h antes del fin de la ventana libre", () => {
+  it("planifica aviso de reinserción T-24h (día antes de la inserción)", () => {
     const notifs = planNotifications(COMPLETED_CYCLIC, 0);
     const n = notifs.find((x) => x.id === "insertion-cycle-def-24h");
     expect(n).toBeDefined();
     expect(n!.triggerAt).toBe("2025-01-27T09:00:00.000Z");
   });
 
-  it("devuelve exactamente 1 notificación para COMPLETED CYCLIC_21_7", () => {
+  it("planifica aviso de reinserción T-0h (día de la inserción)", () => {
     const notifs = planNotifications(COMPLETED_CYCLIC, 0);
-    expect(notifs).toHaveLength(1);
+    const n = notifs.find((x) => x.id === "insertion-cycle-def-0h");
+    expect(n).toBeDefined();
+    expect(n!.triggerAt).toBe("2025-01-28T09:00:00.000Z");
+  });
+
+  it("devuelve exactamente 2 notificaciones para COMPLETED CYCLIC_21_7", () => {
+    const notifs = planNotifications(COMPLETED_CYCLIC, 0);
+    expect(notifs).toHaveLength(2);
   });
 
   it("aplica el offset correctamente para la notif de reinserción", () => {
     // UTC+60 → 08:00 UTC
     const notifs = planNotifications(COMPLETED_CYCLIC, 60);
-    const n = notifs.find((x) => x.id === "insertion-cycle-def-24h");
-    expect(n!.triggerAt).toBe("2025-01-27T08:00:00.000Z");
+    const n24h = notifs.find((x) => x.id === "insertion-cycle-def-24h");
+    const n0h  = notifs.find((x) => x.id === "insertion-cycle-def-0h");
+    expect(n24h!.triggerAt).toBe("2025-01-27T08:00:00.000Z");
+    expect(n0h!.triggerAt).toBe("2025-01-28T08:00:00.000Z");
   });
 });
 

@@ -1,4 +1,5 @@
 export const migration002 = `
+DROP TABLE IF EXISTS Settings;
 CREATE TABLE IF NOT EXISTS Settings (
   id                INTEGER PRIMARY KEY CHECK (id = 1),
   regimen           TEXT NOT NULL DEFAULT 'CYCLIC_21_7' CHECK (regimen IN ('CYCLIC_21_7', 'CONTINUOUS')),

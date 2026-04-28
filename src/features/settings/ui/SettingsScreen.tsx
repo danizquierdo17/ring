@@ -1,142 +1,168 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useSettings } from "../hooks/useSettings";
-import type { Regimen } from "../../cycle/domain/cycleStateMachine";
+import { useSettings } from '../hooks/useSettings';
+import type { Regimen } from '../../cycle/domain/cycleStateMachine';
+import { C } from '../../../shared/theme/colors';
 
 export function SettingsScreen() {
   const { settings, isLoading, setRegimen, setContinuousDays } = useSettings();
 
   if (isLoading || settings === null) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-white" edges={["top"]}>
-        <ActivityIndicator size="large" color="#4f46e5" />
+      <SafeAreaView style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }} edges={['top']}>
+        <ActivityIndicator size="large" color={C.indigo} />
       </SafeAreaView>
     );
   }
 
   function handleRegimenChange(regimen: Regimen) {
     const error = setRegimen(regimen);
-    if (error !== null) {
-      Alert.alert("Error", error.message);
-    }
+    if (error !== null) Alert.alert('Error', error.message);
   }
 
   function handleContinuousDaysChange(delta: number) {
-    const newDays = settings!.continuousDays + delta;
-    const error = setContinuousDays(newDays);
-    if (error !== null) {
-      Alert.alert("Error", error.message);
-    }
+    const error = setContinuousDays(settings!.continuousDays + delta);
+    if (error !== null) Alert.alert('Error', error.message);
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
-      <View className="px-6 pt-6 pb-4 border-b border-gray-100">
-        <Text className="text-2xl font-bold text-indigo-900">Ajustes</Text>
-      </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
+      <ScrollView showsVerticalScrollIndicator={false}>
 
-      <View className="px-6 pt-6 gap-8">
-
-        {/* Régimen */}
-        <View className="gap-3">
-          <Text className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-            Tipo de régimen
-          </Text>
-
-          <TouchableOpacity
-            className={`flex-row items-center justify-between p-4 rounded-xl border-2 ${
-              settings.regimen === "CYCLIC_21_7"
-                ? "border-indigo-600 bg-indigo-50"
-                : "border-gray-200 bg-white"
-            }`}
-            onPress={() => handleRegimenChange("CYCLIC_21_7")}
-            accessibilityRole="radio"
-            accessibilityLabel="Cíclico 21+7"
-            accessibilityState={{ checked: settings.regimen === "CYCLIC_21_7" }}
-          >
-            <View className="gap-1">
-              <Text
-                className={`text-base font-semibold ${
-                  settings.regimen === "CYCLIC_21_7" ? "text-indigo-700" : "text-gray-800"
-                }`}
-              >
-                Cíclico 21+7
-              </Text>
-              <Text className="text-sm text-gray-500">21 días con anillo, 7 de descanso</Text>
-            </View>
-            {settings.regimen === "CYCLIC_21_7" && (
-              <View className="w-5 h-5 rounded-full bg-indigo-600" />
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className={`flex-row items-center justify-between p-4 rounded-xl border-2 ${
-              settings.regimen === "CONTINUOUS"
-                ? "border-indigo-600 bg-indigo-50"
-                : "border-gray-200 bg-white"
-            }`}
-            onPress={() => handleRegimenChange("CONTINUOUS")}
-            accessibilityRole="radio"
-            accessibilityLabel="Continuo"
-            accessibilityState={{ checked: settings.regimen === "CONTINUOUS" }}
-          >
-            <View className="gap-1">
-              <Text
-                className={`text-base font-semibold ${
-                  settings.regimen === "CONTINUOUS" ? "text-indigo-700" : "text-gray-800"
-                }`}
-              >
-                Continuo
-              </Text>
-              <Text className="text-sm text-gray-500">
-                Recambio cada {settings.continuousDays} días sin descanso
-              </Text>
-            </View>
-            {settings.regimen === "CONTINUOUS" && (
-              <View className="w-5 h-5 rounded-full bg-indigo-600" />
-            )}
-          </TouchableOpacity>
+        {/* Header */}
+        <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.slate100 }}>
+          <Text style={{ fontSize: 22, fontWeight: '800', color: C.text, letterSpacing: -0.5 }}>Ajustes</Text>
         </View>
 
-        {/* Días en régimen continuo */}
-        {settings.regimen === "CONTINUOUS" && (
-          <View className="gap-3">
-            <Text className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-              Duración del anillo
+        <View style={{ paddingHorizontal: 20, paddingTop: 24, gap: 24 }}>
+
+          {/* Régimen section */}
+          <View style={{ gap: 10 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: C.slate400, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Tipo de régimen
             </Text>
-            <View className="flex-row items-center justify-between p-4 rounded-xl border border-gray-200 bg-white">
-              <Text className="text-base text-gray-800">Días por anillo</Text>
-              <View className="flex-row items-center gap-4">
-                <TouchableOpacity
-                  className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center"
-                  onPress={() => handleContinuousDaysChange(-1)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Reducir días"
-                  accessibilityHint="Resta un día a la duración del anillo"
-                >
-                  <Text className="text-lg font-bold text-gray-600">−</Text>
-                </TouchableOpacity>
-                <Text className="text-lg font-semibold text-indigo-700 w-8 text-center">
-                  {settings.continuousDays}
-                </Text>
-                <TouchableOpacity
-                  className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center"
-                  onPress={() => handleContinuousDaysChange(+1)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Aumentar días"
-                  accessibilityHint="Suma un día a la duración del anillo"
-                >
-                  <Text className="text-lg font-bold text-gray-600">+</Text>
-                </TouchableOpacity>
+
+            <RegimenOption
+              label="Cíclico 21+7"
+              description="21 días con anillo, 7 de descanso"
+              selected={settings.regimen === 'CYCLIC_21_7'}
+              onPress={() => handleRegimenChange('CYCLIC_21_7')}
+            />
+            <RegimenOption
+              label="Continuo"
+              description={`Recambio cada ${settings.continuousDays} días sin descanso`}
+              selected={settings.regimen === 'CONTINUOUS'}
+              onPress={() => handleRegimenChange('CONTINUOUS')}
+            />
+          </View>
+
+          {/* Continuous days stepper */}
+          {settings.regimen === 'CONTINUOUS' && (
+            <View style={{ gap: 10 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: C.slate400, textTransform: 'uppercase', letterSpacing: 1 }}>
+                Duración del anillo
+              </Text>
+              <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.slate100, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: C.text }}>Días por anillo</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                  <TouchableOpacity
+                    onPress={() => handleContinuousDaysChange(-1)}
+                    style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: C.lavender, alignItems: 'center', justifyContent: 'center' }}
+                    accessibilityRole="button" accessibilityLabel="Reducir días"
+                  >
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: C.indigo, lineHeight: 24 }}>−</Text>
+                  </TouchableOpacity>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: C.indigo, minWidth: 32, textAlign: 'center' }}>
+                    {settings.continuousDays}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => handleContinuousDaysChange(+1)}
+                    style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: C.lavender, alignItems: 'center', justifyContent: 'center' }}
+                    accessibilityRole="button" accessibilityLabel="Aumentar días"
+                  >
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: C.indigo, lineHeight: 24 }}>+</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
+              <Text style={{ fontSize: 11, color: C.slate400, textAlign: 'center' }}>Entre 21 y 365 días</Text>
             </View>
-            <Text className="text-xs text-gray-400 text-center">
-              Entre 21 y 365 días
+          )}
+
+          {/* Privacy note */}
+          <View style={{ backgroundColor: C.slate100, borderRadius: 16, padding: 16, gap: 4 }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: C.slate700 }}>Privacidad</Text>
+            <Text style={{ fontSize: 12, color: C.slate400, lineHeight: 18 }}>
+              Tus datos nunca salen del dispositivo. Todo se almacena de forma local y privada.
             </Text>
           </View>
-        )}
-      </View>
+
+        </View>
+
+        {/* Footer */}
+        <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: C.slate400, letterSpacing: 1 }}>
+            LUA RING v1.0.0
+          </Text>
+          <Text style={{ fontSize: 10, color: C.slate200, marginTop: 4, letterSpacing: 0.5 }}>
+            CONFIDENCE. CONTROL. YOU.
+          </Text>
+        </View>
+
+      </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function RegimenOption({ label, description, selected, onPress }: {
+  label: string;
+  description: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: selected }}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 2,
+        borderColor: selected ? C.indigo : C.slate100,
+        backgroundColor: selected ? C.lavender : '#fff',
+        shadowColor: selected ? C.indigo : '#000',
+        shadowOpacity: selected ? 0.08 : 0.03,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+      }}
+    >
+      <View style={{ gap: 2, flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: selected ? C.indigo : C.text }}>
+          {label}
+        </Text>
+        <Text style={{ fontSize: 12, color: selected ? C.indigoLight : C.slate400 }}>
+          {description}
+        </Text>
+      </View>
+      <View style={{
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        borderWidth: 2,
+        borderColor: selected ? C.indigo : C.slate200,
+        backgroundColor: selected ? C.indigo : 'transparent',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 12,
+      }}>
+        {selected && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' }} />}
+      </View>
+    </TouchableOpacity>
   );
 }

@@ -20,7 +20,6 @@ export function useCurrentCycle() {
   const _setLoading = useCycleStore((s) => s._setLoading);
   const _setCycle = useCycleStore((s) => s._setCycle);
 
-  // Carga el ciclo activo al montar — una sola vez
   useEffect(() => {
     const result = getActiveCycle(db);
     if (isOk(result)) {
@@ -31,13 +30,11 @@ export function useCurrentCycle() {
   }, []);
 
   /**
-   * Inserta un nuevo anillo. `now` se captura en el momento de la llamada,
-   * no en el render, para evitar bugs con la app en segundo plano.
-   * Lee el régimen y los días configurados en Settings.
-   * Después de insertar, reconcilia notificaciones en background.
+   * Inserta un nuevo anillo con el timestamp elegido por la usuaria.
+   * Lee el régimen y días configurados en Settings.
    */
-  const insertRingAction = useCallback((): Result<Cycle, AppError> => {
-    const now = new Date().toISOString();
+  const insertRingAction = useCallback((chosenAt?: string): Result<Cycle, AppError> => {
+    const now = chosenAt ?? new Date().toISOString();
 
     const settingsResult = getSettings(db);
     const regimen: Regimen = isOk(settingsResult)
@@ -58,8 +55,7 @@ export function useCurrentCycle() {
     });
 
     if (isOk(repoResult)) {
-      _setCycle(repoResult.value, now);
-      // Reconcile notifications in background (fire and forget)
+      _setCycle(repoResult.value, new Date().toISOString());
       void reconcileNotifications(db);
     }
 
@@ -67,11 +63,10 @@ export function useCurrentCycle() {
   }, [db, currentCycle, _setCycle]);
 
   /**
-   * Retira el anillo activo. `now` se captura al ejecutar la acción.
-   * Después de retirar, reconcilia notificaciones en background.
+   * Retira el anillo activo con el timestamp elegido por la usuaria.
    */
-  const removeRingAction = useCallback((): Result<Cycle, AppError> => {
-    const now = new Date().toISOString();
+  const removeRingAction = useCallback((chosenAt?: string): Result<Cycle, AppError> => {
+    const now = chosenAt ?? new Date().toISOString();
 
     if (!currentCycle) {
       return {
@@ -86,8 +81,7 @@ export function useCurrentCycle() {
     const repoResult = updateCycle(db, domainResult.value);
 
     if (isOk(repoResult)) {
-      _setCycle(repoResult.value, now);
-      // Reconcile notifications in background (fire and forget)
+      _setCycle(repoResult.value, new Date().toISOString());
       void reconcileNotifications(db);
     }
 

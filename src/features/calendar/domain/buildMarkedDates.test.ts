@@ -5,6 +5,13 @@
 import { buildMarkedDates } from "./buildMarkedDates";
 import type { Cycle } from "../../cycle/domain/cycleStateMachine";
 
+// Color values mirrored from shared/theme/colors — kept local so this
+// test file has zero UI-framework imports.
+const EMERALD  = "#2ECC9A";
+const INDIGO   = "#3A3CF6";
+const CORAL    = "#FF6B7A";
+const LAVENDER = "#E7E6FF";
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -24,18 +31,17 @@ function makeCycle(overrides: Partial<Cycle> & { insertedAt: string }): Cycle {
 }
 
 // ---------------------------------------------------------------------------
-// buildMarkedDates — empty / null cases
+// Empty cases
 // ---------------------------------------------------------------------------
 
 describe("buildMarkedDates — empty cases", () => {
   it("returns empty object when cycles array is empty", () => {
-    const result = buildMarkedDates([], "2025-01-15T12:00:00.000Z");
-    expect(result).toEqual({});
+    expect(buildMarkedDates([], "2025-01-15T12:00:00.000Z")).toEqual({});
   });
 });
 
 // ---------------------------------------------------------------------------
-// buildMarkedDates — ACTIVE cycle (ring in use)
+// ACTIVE cycle
 // ---------------------------------------------------------------------------
 
 describe("buildMarkedDates — ACTIVE cycle", () => {
@@ -46,37 +52,36 @@ describe("buildMarkedDates — ACTIVE cycle", () => {
     status: "ACTIVE",
   });
 
-  it("marks the start day as startingDay", () => {
+  it("insertion day is emerald (single dot)", () => {
     const marks = buildMarkedDates([cycle], "2025-01-05T12:00:00.000Z");
-    expect(marks["2025-01-01"]).toMatchObject({ startingDay: true });
+    expect(marks["2025-01-01"]).toMatchObject({ color: EMERALD, startingDay: true, endingDay: true });
   });
 
-  it("marks today as endingDay for active cycle (open-ended)", () => {
+  it("band days use indigo", () => {
     const marks = buildMarkedDates([cycle], "2025-01-05T12:00:00.000Z");
-    expect(marks["2025-01-05"]).toMatchObject({ endingDay: true });
+    expect(marks["2025-01-03"]).toMatchObject({ color: INDIGO, startingDay: false, endingDay: false });
   });
 
-  it("marks intermediate days as neither start nor end", () => {
+  it("today is the end of the indigo band (ring in use today)", () => {
     const marks = buildMarkedDates([cycle], "2025-01-05T12:00:00.000Z");
-    expect(marks["2025-01-03"]).toMatchObject({ startingDay: false, endingDay: false });
+    expect(marks["2025-01-05"]).toMatchObject({ color: INDIGO, endingDay: true });
   });
 
-  it("uses indigo color for ring-in-use days", () => {
+  it("planned removal day gets lavender with coral border", () => {
     const marks = buildMarkedDates([cycle], "2025-01-05T12:00:00.000Z");
-    expect(marks["2025-01-01"]?.color).toBeDefined();
-    // Color should be the indigo brand color
-    expect(marks["2025-01-01"]?.color).toMatch(/^#/);
+    expect(marks["2025-01-22"]).toMatchObject({ color: LAVENDER, borderColor: CORAL, startingDay: true, endingDay: true });
   });
 
-  it("marks only the start when insertedAt and now are the same day", () => {
+  it("only insertion day when insertedAt and now are same day", () => {
     const marks = buildMarkedDates([cycle], "2025-01-01T22:00:00.000Z");
-    const day = marks["2025-01-01"];
-    expect(day).toMatchObject({ startingDay: true, endingDay: true });
+    expect(marks["2025-01-01"]).toMatchObject({ color: EMERALD, startingDay: true, endingDay: true });
+    // No band days (no room between insertion and today)
+    expect(marks["2025-01-02"]).toBeUndefined();
   });
 });
 
 // ---------------------------------------------------------------------------
-// buildMarkedDates — COMPLETED cycle (ring removed)
+// COMPLETED cycle
 // ---------------------------------------------------------------------------
 
 describe("buildMarkedDates — COMPLETED cycle", () => {
@@ -88,26 +93,34 @@ describe("buildMarkedDates — COMPLETED cycle", () => {
     status: "COMPLETED",
   });
 
-  it("marks insertedAt day as startingDay", () => {
+  it("insertion day is emerald", () => {
     const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
-    expect(marks["2025-01-01"]).toMatchObject({ startingDay: true });
+    expect(marks["2025-01-01"]).toMatchObject({ color: EMERALD, startingDay: true, endingDay: true });
   });
 
-  it("marks removedAt day as endingDay", () => {
+  it("removal day is coral (single dot)", () => {
     const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
-    expect(marks["2025-01-21"]).toMatchObject({ endingDay: true });
+    expect(marks["2025-01-21"]).toMatchObject({ color: CORAL, startingDay: true, endingDay: true });
   });
 
-  it("does not mark days after removedAt with ring-in-use color", () => {
-    // cycle is CYCLIC_21_7 so free window will mark Jan 22+, but not with ring color
+  it("day between insertion and removal is indigo band", () => {
     const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
-    // Jan 22 may be marked as free window; what matters is the ring period ends at Jan 21
-    expect(marks["2025-01-21"]).toMatchObject({ endingDay: true });
+    expect(marks["2025-01-10"]).toMatchObject({ color: INDIGO });
+  });
+
+  it("day before removal is end of indigo band", () => {
+    const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
+    expect(marks["2025-01-20"]).toMatchObject({ color: INDIGO, endingDay: true });
+  });
+
+  it("day after removal is NOT indigo (free window or unmarked)", () => {
+    const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
+    expect(marks["2025-01-22"]?.color).not.toBe(INDIGO);
   });
 });
 
 // ---------------------------------------------------------------------------
-// buildMarkedDates — CYCLIC_21_7 free window (ring out, rest period)
+// CYCLIC_21_7 free window
 // ---------------------------------------------------------------------------
 
 describe("buildMarkedDates — CYCLIC_21_7 free window", () => {
@@ -120,22 +133,29 @@ describe("buildMarkedDates — CYCLIC_21_7 free window", () => {
     status: "COMPLETED",
   });
 
-  it("marks the free window days (day after removal through day 7)", () => {
-    const now = "2025-01-28T12:00:00.000Z"; // after free window
-    const marks = buildMarkedDates([cycle], now);
-    // Free window: 2025-01-22 to 2025-01-27 (7 days from removedAt)
-    expect(marks["2025-01-22"]).toBeDefined();
-    expect(marks["2025-01-27"]).toBeDefined();
+  it("free window starts day after removal (Jan 22)", () => {
+    const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
+    expect(marks["2025-01-22"]).toMatchObject({ color: LAVENDER, startingDay: true });
   });
 
-  it("free window uses a different color from ring-in-use", () => {
-    const now = "2025-01-28T12:00:00.000Z";
-    const marks = buildMarkedDates([cycle], now);
-    const ringColor = marks["2025-01-10"]?.color;
-    const freeColor = marks["2025-01-22"]?.color;
-    expect(ringColor).toBeDefined();
-    expect(freeColor).toBeDefined();
-    expect(ringColor).not.toBe(freeColor);
+  it("free window (lavender band) ends on removedAt + 6 days (Jan 27)", () => {
+    const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
+    expect(marks["2025-01-27"]).toMatchObject({ color: LAVENDER, endingDay: true });
+  });
+
+  it("planned insertion day (removedAt + 7 = Jan 28) has emerald border", () => {
+    const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
+    expect(marks["2025-01-28"]).toMatchObject({ color: LAVENDER, borderColor: "#2ECC9A", startingDay: true, endingDay: true });
+  });
+
+  it("day Jan 25 is inside the free window", () => {
+    const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
+    expect(marks["2025-01-25"]).toMatchObject({ color: LAVENDER });
+  });
+
+  it("free window uses a different color from the ring band", () => {
+    const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
+    expect(marks["2025-01-10"]?.color).not.toBe(marks["2025-01-22"]?.color);
   });
 
   it("does not mark free window for CONTINUOUS regimen", () => {
@@ -147,28 +167,13 @@ describe("buildMarkedDates — CYCLIC_21_7 free window", () => {
       plannedRemovalAt: "2025-01-29T08:00:00.000Z",
       status: "COMPLETED",
     });
-    const now = "2025-02-10T12:00:00.000Z";
-    const marks = buildMarkedDates([continuousCycle], now);
-    // No free window expected after removal
+    const marks = buildMarkedDates([continuousCycle], "2025-02-10T12:00:00.000Z");
     expect(marks["2025-01-30"]).toBeUndefined();
-  });
-
-  it("free window startingDay is the day after removedAt", () => {
-    const now = "2025-01-28T12:00:00.000Z";
-    const marks = buildMarkedDates([cycle], now);
-    expect(marks["2025-01-22"]).toMatchObject({ startingDay: true });
-  });
-
-  it("free window endingDay is removedAt + 7 days (Jan 28)", () => {
-    const now = "2025-01-29T12:00:00.000Z";
-    const marks = buildMarkedDates([cycle], now);
-    // removedAt Jan 21 → utcMidnight Jan 21 + 7 days = Jan 28
-    expect(marks["2025-01-28"]).toMatchObject({ endingDay: true });
   });
 });
 
 // ---------------------------------------------------------------------------
-// buildMarkedDates — múltiple cycles
+// Multiple cycles
 // ---------------------------------------------------------------------------
 
 describe("buildMarkedDates — multiple cycles", () => {
@@ -189,18 +194,23 @@ describe("buildMarkedDates — multiple cycles", () => {
     status: "ACTIVE",
   });
 
-  it("marks both cycles' days", () => {
-    const now = "2025-01-05T12:00:00.000Z";
-    const marks = buildMarkedDates([cycle1, cycle2], now);
-    expect(marks["2024-12-01"]).toBeDefined(); // cycle1 start
-    expect(marks["2024-12-29"]).toBeDefined(); // cycle2 start
+  it("marks both cycles insertion days", () => {
+    const marks = buildMarkedDates([cycle1, cycle2], "2025-01-05T12:00:00.000Z");
+    expect(marks["2024-12-01"]).toMatchObject({ color: EMERALD });
+    expect(marks["2024-12-29"]).toMatchObject({ color: EMERALD });
   });
 
   it("marks the free window between cycle1 and cycle2", () => {
-    const now = "2025-01-05T12:00:00.000Z";
-    const marks = buildMarkedDates([cycle1, cycle2], now);
-    // Free window after cycle1: 2024-12-22 to 2024-12-28
-    expect(marks["2024-12-22"]).toBeDefined();
-    expect(marks["2024-12-28"]).toBeDefined();
+    const marks = buildMarkedDates([cycle1, cycle2], "2025-01-05T12:00:00.000Z");
+    // Free band: Dec 22 (start) to Dec 27 (end, = removedAt+6)
+    expect(marks["2024-12-22"]).toMatchObject({ color: LAVENDER, startingDay: true });
+    expect(marks["2024-12-27"]).toMatchObject({ color: LAVENDER, endingDay: true });
+    // Planned insertion: Dec 28 (= removedAt+7) has emerald border
+    expect(marks["2024-12-28"]).toMatchObject({ color: LAVENDER, borderColor: "#2ECC9A" });
+  });
+
+  it("cycle1 removal day is coral", () => {
+    const marks = buildMarkedDates([cycle1, cycle2], "2025-01-05T12:00:00.000Z");
+    expect(marks["2024-12-21"]).toMatchObject({ color: CORAL });
   });
 });

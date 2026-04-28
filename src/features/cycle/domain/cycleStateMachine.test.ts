@@ -6,6 +6,7 @@ import {
   insertRing,
   removeRing,
   calcDayOfCycle,
+  calcEarlyLateWarning,
   CYCLIC_RING_DAYS,
   CYCLIC_FREE_DAYS,
   CONTINUOUS_DEFAULT_DAYS,
@@ -242,5 +243,42 @@ describe("domain constants", () => {
 
   it("CONTINUOUS default is 28 days", () => {
     expect(CONTINUOUS_DEFAULT_DAYS).toBe(28);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// calcEarlyLateWarning
+// ---------------------------------------------------------------------------
+
+describe("calcEarlyLateWarning", () => {
+  const planned = "2025-01-22T10:00:00.000Z";
+
+  it("returns null when removal is exactly on time", () => {
+    expect(calcEarlyLateWarning(planned, planned)).toBeNull();
+  });
+
+  it("returns null when removal is within threshold (±12h default)", () => {
+    const minus11h = "2025-01-21T23:00:00.000Z";
+    const plus11h  = "2025-01-22T21:00:00.000Z";
+    expect(calcEarlyLateWarning(planned, minus11h)).toBeNull();
+    expect(calcEarlyLateWarning(planned, plus11h)).toBeNull();
+  });
+
+  it("returns EARLY when removal is more than 12h before planned", () => {
+    const minus24h = "2025-01-21T10:00:00.000Z";
+    const result = calcEarlyLateWarning(planned, minus24h);
+    expect(result).toEqual({ kind: 'EARLY', hoursEarly: 24 });
+  });
+
+  it("returns LATE when removal is more than 12h after planned", () => {
+    const plus36h = "2025-01-23T22:00:00.000Z";
+    const result = calcEarlyLateWarning(planned, plus36h);
+    expect(result).toEqual({ kind: 'LATE', hoursLate: 36 });
+  });
+
+  it("respects a custom threshold", () => {
+    const minus2h = "2025-01-22T08:00:00.000Z";
+    expect(calcEarlyLateWarning(planned, minus2h, 1)).toEqual({ kind: 'EARLY', hoursEarly: 2 });
+    expect(calcEarlyLateWarning(planned, minus2h, 3)).toBeNull();
   });
 });

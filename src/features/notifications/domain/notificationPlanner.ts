@@ -89,15 +89,24 @@ export function planNotifications(
     cycle.regimen === "CYCLIC_21_7" &&
     cycle.removedAt !== null
   ) {
-    // Free window ends at removedAt + CYCLIC_FREE_DAYS (UTC midnight of that day)
-    // Reminder at T-24h (i.e., one day before the free window ends) at 09:00 local
-    const freeWindowEnd = addDaysUtc(cycle.removedAt, CYCLIC_FREE_DAYS);
-    const dayBeforeInsertion = addDaysUtc(freeWindowEnd, -1);
+    // Planned insertion day = removedAt + CYCLIC_FREE_DAYS
+    const plannedInsertionAt = addDaysUtc(cycle.removedAt, CYCLIC_FREE_DAYS);
+    const dayBeforeInsertion = addDaysUtc(plannedInsertionAt, -1);
+
+    // T-24h: day before planned insertion at 09:00 local
     notifications.push({
       id: `insertion-${cycle.id}-24h`,
       triggerAt: at09Local(dayBeforeInsertion, utcOffsetMinutes),
       title: "Mañana insertas el anillo",
       body: "Tu descanso termina mañana. Prepárate para insertar el nuevo anillo.",
+    });
+
+    // T-0h: day of planned insertion at 09:00 local
+    notifications.push({
+      id: `insertion-${cycle.id}-0h`,
+      triggerAt: at09Local(plannedInsertionAt, utcOffsetMinutes),
+      title: "Hoy insertas el nuevo anillo",
+      body: "Tu período de descanso ha terminado. Es el momento de insertar tu nuevo anillo.",
     });
   }
 
