@@ -18,6 +18,7 @@ import type { SQLiteDatabase } from "expo-sqlite";
 import type { CycleRow } from "../../../infra/db/schema";
 import {
   getActiveCycle,
+  getAllCycles,
   insertCycle,
   updateCycle,
   type InsertCycleInput,
@@ -247,6 +248,77 @@ describe("updateCycle", () => {
 
     const result = updateCycle(db, completedCycle);
 
+    expect(isErr(result)).toBe(true);
+    if (!isErr(result)) return;
+    expect(result.error.code).toBe("DB_ERROR");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAllCycles
+// ---------------------------------------------------------------------------
+
+describe("getAllCycles", () => {
+  const row1: CycleRow = {
+    id: "c1",
+    regimen: "CYCLIC_21_7",
+    inserted_at: "2026-01-01T08:00:00.000Z",
+    removed_at: "2026-01-21T08:00:00.000Z",
+    planned_removal_at: "2026-01-22T08:00:00.000Z",
+    status: "COMPLETED",
+    notes: null,
+    created_at: "2026-01-01T08:00:00.000Z",
+    updated_at: "2026-01-21T08:00:00.000Z",
+  };
+  const row2: CycleRow = {
+    id: "c2",
+    regimen: "CYCLIC_21_7",
+    inserted_at: "2026-02-01T08:00:00.000Z",
+    removed_at: null,
+    planned_removal_at: "2026-02-22T08:00:00.000Z",
+    status: "ACTIVE",
+    notes: null,
+    created_at: "2026-02-01T08:00:00.000Z",
+    updated_at: "2026-02-01T08:00:00.000Z",
+  };
+
+  it("devuelve Ok([]) cuando no hay ciclos", () => {
+    const db = createMockDb({ getAllSync: jest.fn().mockReturnValue([]) });
+    const result = getAllCycles(db);
+    expect(isOk(result)).toBe(true);
+    if (!isOk(result)) return;
+    expect(result.value).toEqual([]);
+  });
+
+  it("mapea todas las filas a Cycle correctamente", () => {
+    const db = createMockDb({
+      getAllSync: jest.fn().mockReturnValue([row1, row2]),
+    });
+    const result = getAllCycles(db);
+    expect(isOk(result)).toBe(true);
+    if (!isOk(result)) return;
+    expect(result.value).toHaveLength(2);
+    expect(result.value[0]!.id).toBe("c1");
+    expect(result.value[0]!.status).toBe("COMPLETED");
+    expect(result.value[1]!.id).toBe("c2");
+    expect(result.value[1]!.status).toBe("ACTIVE");
+  });
+
+  it("la consulta ordena por inserted_at DESC", () => {
+    const db = createMockDb({ getAllSync: jest.fn().mockReturnValue([]) });
+    getAllCycles(db);
+    const sql = ((db.getAllSync as jest.Mock).mock.calls[0]?.[0] as string) ?? "";
+    expect(sql.toUpperCase()).toContain("ORDER BY");
+    expect(sql.toLowerCase()).toContain("inserted_at");
+  });
+
+  it("devuelve Err(DB_ERROR) cuando SQLite lanza", () => {
+    const db = createMockDb({
+      getAllSync: jest.fn().mockImplementation(() => {
+        throw new Error("no such table");
+      }),
+    });
+    const result = getAllCycles(db);
     expect(isErr(result)).toBe(true);
     if (!isErr(result)) return;
     expect(result.error.code).toBe("DB_ERROR");

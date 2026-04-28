@@ -1,5 +1,5 @@
 import { View, Text, ActivityIndicator, Alert } from "react-native";
-import { SafeAreaView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCurrentCycle } from "../hooks/useCurrentCycle";
 import { PrimaryActionButton } from "./PrimaryActionButton";
@@ -12,7 +12,7 @@ export function HomeScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-white">
+      <SafeAreaView className="flex-1 items-center justify-center bg-white" edges={["top"]}>
         <ActivityIndicator size="large" color="#4f46e5" />
       </SafeAreaView>
     );
@@ -33,10 +33,7 @@ export function HomeScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      {/* TODO: Calendario — react-native-calendars, Fase 3 */}
-      <View />
-
+    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       <View className="flex-1 items-center justify-center gap-6 px-8">
         {dayLabel !== null && (
           <Text className="text-gray-500 text-base text-center">{dayLabel}</Text>

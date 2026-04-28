@@ -49,6 +49,23 @@ function dbError(e: unknown): AppError {
 }
 
 // ---------------------------------------------------------------------------
+// getAllCycles
+// ---------------------------------------------------------------------------
+
+export function getAllCycles(
+  db: SQLiteDatabase
+): Result<Cycle[], AppError> {
+  try {
+    const rows = db.getAllSync<CycleRow>(
+      "SELECT * FROM Cycles ORDER BY inserted_at DESC"
+    );
+    return ok(rows.map(rowToCycle));
+  } catch (e) {
+    return err(dbError(e));
+  }
+}
+
+// ---------------------------------------------------------------------------
 // getActiveCycle
 // ---------------------------------------------------------------------------
 
