@@ -5,7 +5,7 @@ import { SQLiteProvider } from "expo-sqlite";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { Home, CalendarDays } from "lucide-react-native";
+import { Home, CalendarDays, Settings } from "lucide-react-native";
 
 // lucide-react-native types resolve to the web SVG types in this project's TS
 // config; casting to any avoids the false-positive error at the call site.
@@ -13,10 +13,13 @@ import { Home, CalendarDays } from "lucide-react-native";
 const HomeIcon = Home as React.ComponentType<any>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CalendarIcon = CalendarDays as React.ComponentType<any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const SettingsIcon = Settings as React.ComponentType<any>;
 
 import { initializeDatabase } from "./src/infra/db/client";
 import { HomeScreen } from "./src/features/cycle/ui/HomeScreen";
 import { CalendarScreen } from "./src/features/calendar/ui/CalendarScreen";
+import { SettingsScreen } from "./src/features/settings/ui/SettingsScreen";
 // TODO: Reactivate when development build is ready (Expo Go SDK 53+ has issues with local notifications)
 // import { useNotificationsReconciliation } from "./src/features/notifications/hooks/useNotificationsReconciliation";
 
@@ -27,6 +30,7 @@ import { CalendarScreen } from "./src/features/calendar/ui/CalendarScreen";
 type RootTabParamList = {
   Inicio: undefined;
   Calendario: undefined;
+  Ajustes: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -88,6 +92,16 @@ function RootTabs() {
             <CalendarIcon color={color} size={size} />
           ),
           tabBarAccessibilityLabel: "Calendario",
+        }}
+      />
+      <Tab.Screen
+        name="Ajustes"
+        component={SettingsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <SettingsIcon color={color} size={size} />
+          ),
+          tabBarAccessibilityLabel: "Ajustes",
         }}
       />
     </Tab.Navigator>

@@ -9,9 +9,7 @@ import type { Result } from "../../../shared/result";
 import type { AppError } from "../../../shared/errors";
 import type { Cycle, Regimen } from "../domain/cycleStateMachine";
 import { reconcileNotifications } from "../../notifications/hooks/useNotificationsReconciliation";
-
-// En Fase 3 se leerá de settingsRepo.get('regimen.default')
-const DEFAULT_REGIMEN: Regimen = "CYCLIC_21_7";
+import { getSettings } from "../../settings/data/settingsRepo";
 
 export function useCurrentCycle() {
   const db = useSQLiteContext();
@@ -35,16 +33,25 @@ export function useCurrentCycle() {
   /**
    * Inserta un nuevo anillo. `now` se captura en el momento de la llamada,
    * no en el render, para evitar bugs con la app en segundo plano.
+   * Lee el régimen y los días configurados en Settings.
    * Después de insertar, reconcilia notificaciones en background.
    */
   const insertRingAction = useCallback((): Result<Cycle, AppError> => {
     const now = new Date().toISOString();
 
-    const domainResult = insertRing(now, DEFAULT_REGIMEN, undefined, currentCycle);
+    const settingsResult = getSettings(db);
+    const regimen: Regimen = isOk(settingsResult)
+      ? settingsResult.value.regimen
+      : "CYCLIC_21_7";
+    const continuousDays = isOk(settingsResult)
+      ? settingsResult.value.continuousDays
+      : undefined;
+
+    const domainResult = insertRing(now, regimen, continuousDays, currentCycle);
     if (!isOk(domainResult)) return domainResult;
 
     const repoResult = insertCycle(db, {
-      regimen: domainResult.value.regimen,
+      regimen,
       insertedAt: domainResult.value.insertedAt,
       plannedRemovalAt: domainResult.value.plannedRemovalAt,
       notes: domainResult.value.notes,
