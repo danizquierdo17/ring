@@ -3,7 +3,8 @@ export type AppErrorCode =
   | "CYCLE_NOT_ACTIVE"
   | "CYCLE_NOT_FOUND"
   | "INVALID_DATE"
-  | "DB_ERROR";
+  | "DB_ERROR"
+  | "PERMISSION_DENIED";
 
 export type AppError = {
   readonly code: AppErrorCode;

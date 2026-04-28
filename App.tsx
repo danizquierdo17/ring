@@ -17,6 +17,7 @@ const CalendarIcon = CalendarDays as React.ComponentType<any>;
 import { initializeDatabase } from "./src/infra/db/client";
 import { HomeScreen } from "./src/features/cycle/ui/HomeScreen";
 import { CalendarScreen } from "./src/features/calendar/ui/CalendarScreen";
+import { useNotificationsReconciliation } from "./src/features/notifications/hooks/useNotificationsReconciliation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,6 +40,15 @@ function DBLoadingFallback() {
       <ActivityIndicator size="large" color="#4f46e5" />
     </View>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Reconciliation — runs once after SQLite is ready, inside SQLiteProvider
+// ---------------------------------------------------------------------------
+
+function NotificationsInit() {
+  useNotificationsReconciliation();
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +105,7 @@ export default function App() {
         onInit={async (db) => initializeDatabase(db)}
       >
         <Suspense fallback={<DBLoadingFallback />}>
+          <NotificationsInit />
           <NavigationContainer>
             <RootTabs />
           </NavigationContainer>
