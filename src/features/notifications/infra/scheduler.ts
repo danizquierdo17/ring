@@ -48,12 +48,27 @@ export async function scheduleAll(
   if (!permResult.ok) return permResult;
 
   const now = Date.now();
+  // eslint-disable-next-line no-console
+  console.log(
+    `[Notifications] Scheduling ${notifications.length} notifications; now=${new Date(now).toISOString()}`
+  );
 
   for (const notif of notifications) {
     const triggerMs = new Date(notif.triggerAt).getTime();
 
     // Skip triggers that have already passed
-    if (triggerMs <= now) continue;
+    if (triggerMs <= now) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[Notifications] Skipping past trigger: id=${notif.id}, triggerAt=${notif.triggerAt}`
+      );
+      continue;
+    }
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `[Notifications] Scheduling: id=${notif.id}, title="${notif.title}", body="${notif.body}", trigger=${new Date(notif.triggerAt).toLocaleString()}`
+    );
 
     // Cancel any existing instance of this ID to avoid duplicates
     await Notifications.cancelScheduledNotificationAsync(notif.id).catch(() => {
