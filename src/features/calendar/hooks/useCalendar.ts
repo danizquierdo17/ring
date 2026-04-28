@@ -3,6 +3,7 @@ import { useSQLiteContext } from "expo-sqlite";
 
 import { getAllCycles } from "../../cycle/data/cyclesRepo";
 import { buildMarkedDates, type MarkedDates } from "../domain/buildMarkedDates";
+import { useCycleStore } from "../../cycle/hooks/useCycleStore";
 
 type CalendarState = {
   markedDates: MarkedDates;
@@ -12,6 +13,7 @@ type CalendarState = {
 
 export function useCalendar(): CalendarState {
   const db = useSQLiteContext();
+  const currentCycle = useCycleStore((s) => s.currentCycle);
   const [state, setState] = useState<CalendarState>({
     markedDates: {},
     isLoading: true,
@@ -35,7 +37,7 @@ export function useCalendar(): CalendarState {
         error: result.error.message,
       });
     }
-  }, [db]);
+  }, [db, currentCycle]);
 
   return state;
 }

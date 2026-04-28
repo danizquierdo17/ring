@@ -17,7 +17,8 @@ const CalendarIcon = CalendarDays as React.ComponentType<any>;
 import { initializeDatabase } from "./src/infra/db/client";
 import { HomeScreen } from "./src/features/cycle/ui/HomeScreen";
 import { CalendarScreen } from "./src/features/calendar/ui/CalendarScreen";
-import { useNotificationsReconciliation } from "./src/features/notifications/hooks/useNotificationsReconciliation";
+// TODO: Reactivate when development build is ready (Expo Go SDK 53+ has issues with local notifications)
+// import { useNotificationsReconciliation } from "./src/features/notifications/hooks/useNotificationsReconciliation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,12 +45,13 @@ function DBLoadingFallback() {
 
 // ---------------------------------------------------------------------------
 // Reconciliation — runs once after SQLite is ready, inside SQLiteProvider
+// TODO: Reactivate when development build is ready
 // ---------------------------------------------------------------------------
 
-function NotificationsInit() {
-  useNotificationsReconciliation();
-  return null;
-}
+// function NotificationsInit() {
+//   useNotificationsReconciliation();
+//   return null;
+// }
 
 // ---------------------------------------------------------------------------
 // Root navigator
@@ -105,7 +107,7 @@ export default function App() {
         onInit={async (db) => initializeDatabase(db)}
       >
         <Suspense fallback={<DBLoadingFallback />}>
-          <NotificationsInit />
+          {/* <NotificationsInit /> */}
           <NavigationContainer>
             <RootTabs />
           </NavigationContainer>
