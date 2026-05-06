@@ -78,6 +78,54 @@ function fillPeriod(marks: MarkedDates, startIso: string, endIso: string, color:
 // Public API
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// buildEditableEvents
+// ---------------------------------------------------------------------------
+
+export type EditableEventField = 'inserted_at' | 'removed_at';
+
+export type EditableEvent = {
+  cycleId: string;
+  field: EditableEventField;
+  currentIso: string;
+  /** The paired timestamp used for cross-field validation. */
+  pairedIso: string | null;
+  regimen: string;
+};
+
+/**
+ * Returns a map of dateKey → EditableEvent for every calendar day the user
+ * is allowed to edit: confirmed insertion days (emerald) and confirmed
+ * removal days (coral).  Planned/future days are NOT editable.
+ */
+export function buildEditableEvents(cycles: Cycle[]): Record<string, EditableEvent> {
+  const events: Record<string, EditableEvent> = {};
+
+  for (const cycle of cycles) {
+    // Insertion day is always editable (past or present)
+    events[toDateKey(cycle.insertedAt)] = {
+      cycleId: cycle.id,
+      field: 'inserted_at',
+      currentIso: cycle.insertedAt,
+      pairedIso: cycle.removedAt,
+      regimen: cycle.regimen,
+    };
+
+    // Actual removal day is editable only when cycle is COMPLETED
+    if (cycle.status === 'COMPLETED' && cycle.removedAt) {
+      events[toDateKey(cycle.removedAt)] = {
+        cycleId: cycle.id,
+        field: 'removed_at',
+        currentIso: cycle.removedAt,
+        pairedIso: cycle.insertedAt,
+        regimen: cycle.regimen,
+      };
+    }
+  }
+
+  return events;
+}
+
 /**
  * Produces CalendarScreen marks from a list of Cycle records.
  *
@@ -95,7 +143,13 @@ function fillPeriod(marks: MarkedDates, startIso: string, endIso: string, color:
 export function buildMarkedDates(cycles: Cycle[], now: string): MarkedDates {
   const marks: MarkedDates = {};
 
-  for (const cycle of cycles) {
+  // Process oldest → newest so that marks from more recent cycles always win.
+  const sorted = [...cycles].sort((a, b) => a.insertedAt.localeCompare(b.insertedAt));
+
+  for (let idx = 0; idx < sorted.length; idx++) {
+    const cycle = sorted[idx]!;
+    const nextCycle = sorted[idx + 1] ?? null;
+
     if (cycle.status === "ACTIVE") {
       // Indigo band: day after insertion up to today (ring is in use today)
       const dayAfter = addDaysUtc(utcMidnight(cycle.insertedAt), 1);
@@ -111,8 +165,7 @@ export function buildMarkedDates(cycles: Cycle[], now: string): MarkedDates {
         singleDay(marks, cycle.plannedRemovalAt, COLOR_PLANNED_REMOVAL, TEXT_DARK, BORDER_PLANNED_REMOVE);
       }
 
-      // Planned insertion: lavender with emerald border (removedAt would be + FREE_DAYS,
-      // but for ACTIVE cycles we derive it from plannedRemovalAt + FREE_DAYS)
+      // Planned insertion derived from plannedRemovalAt + FREE_DAYS
       if (cycle.regimen === "CYCLIC_21_7" && cycle.plannedRemovalAt) {
         const plannedInsertAt = addDaysUtc(utcMidnight(cycle.plannedRemovalAt), CYCLIC_FREE_DAYS);
         singleDay(marks, plannedInsertAt, COLOR_PLANNED_INSERT, TEXT_DARK, BORDER_PLANNED_INSERT);
@@ -136,13 +189,16 @@ export function buildMarkedDates(cycles: Cycle[], now: string): MarkedDates {
 
       // Free window + planned insertion day (CYCLIC_21_7 only)
       if (cycle.regimen === "CYCLIC_21_7") {
-        // Lavender band for rest days (day+1 through day+(FREE_DAYS-1))
-        const freeStart      = addDaysUtc(utcMidnight(cycle.removedAt), 1);
-        const freeEnd        = addDaysUtc(utcMidnight(cycle.removedAt), CYCLIC_FREE_DAYS - 1);
+        const freeStart       = addDaysUtc(utcMidnight(cycle.removedAt), 1);
+        const freeEnd         = addDaysUtc(utcMidnight(cycle.removedAt), CYCLIC_FREE_DAYS - 1);
         const plannedInsertAt = addDaysUtc(utcMidnight(cycle.removedAt), CYCLIC_FREE_DAYS);
         fillPeriod(marks, freeStart, freeEnd, COLOR_FREE, TEXT_DARK);
-        // Planned insertion day: lavender with emerald border (overrides band end)
-        singleDay(marks, plannedInsertAt, COLOR_PLANNED_INSERT, TEXT_DARK, BORDER_PLANNED_INSERT);
+        // Show planned insertion if the planned date is today or future, and no later
+        // cycle has already started before that date.
+        const nextStartedBefore = nextCycle !== null && nextCycle.insertedAt < plannedInsertAt;
+        if (toDateKey(plannedInsertAt) >= toDateKey(now) && !nextStartedBefore) {
+          singleDay(marks, plannedInsertAt, COLOR_PLANNED_INSERT, TEXT_DARK, BORDER_PLANNED_INSERT);
+        }
       }
     }
   }

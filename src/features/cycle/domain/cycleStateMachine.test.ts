@@ -76,11 +76,12 @@ describe("deriveUiState", () => {
     expect(deriveUiState(cycle, now)).toBe("RING_FREE");
   });
 
-  it("returns NO_RING when COMPLETED cycle's 7-day free period has elapsed", () => {
+  it("returns RING_FREE even when 7-day window has elapsed and no new ring inserted", () => {
     const removed = isoDate(2026, 4, 1);
-    // now is April 15 — 14 days after removal, free period over
+    // now is April 15 — 14 days after removal, but no new ACTIVE cycle exists.
+    // getCurrentCycle returns this COMPLETED cycle, so state stays RING_FREE.
     const cycle = completedCycle(isoDate(2026, 3, 11), removed);
-    expect(deriveUiState(cycle, now)).toBe("NO_RING");
+    expect(deriveUiState(cycle, now)).toBe("RING_FREE");
   });
 
   it("returns NO_RING for INTERRUPTED cycle regardless of timing", () => {

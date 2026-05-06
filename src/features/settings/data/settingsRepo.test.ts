@@ -35,6 +35,8 @@ const defaultRow: SettingsRow = {
   id: 1,
   regimen: "CYCLIC_21_7",
   continuous_days: 28,
+  language: "es-ES",
+  theme: "light",
   created_at: "2026-04-15T10:00:00.000Z",
   updated_at: "2026-04-15T10:00:00.000Z",
 };
@@ -42,6 +44,8 @@ const defaultRow: SettingsRow = {
 const defaultSettings: Settings = {
   regimen: "CYCLIC_21_7",
   continuousDays: 28,
+  language: "es-ES",
+  theme: "light",
 };
 
 // ---------------------------------------------------------------------------

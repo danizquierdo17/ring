@@ -2,7 +2,7 @@ import { useEffect, useCallback } from "react";
 import { useSQLiteContext } from "expo-sqlite";
 
 import { useCycleStore } from "./useCycleStore";
-import { getActiveCycle, insertCycle, updateCycle } from "../data/cyclesRepo";
+import { getActiveCycle, getCurrentCycle, insertCycle, updateCycle } from "../data/cyclesRepo";
 import { insertRing, removeRing } from "../domain/cycleStateMachine";
 import { isOk } from "../../../shared/result";
 import type { Result } from "../../../shared/result";
@@ -21,7 +21,7 @@ export function useCurrentCycle() {
   const _setCycle = useCycleStore((s) => s._setCycle);
 
   useEffect(() => {
-    const result = getActiveCycle(db);
+    const result = getCurrentCycle(db);
     if (isOk(result)) {
       _setCycle(result.value, new Date().toISOString());
     }
@@ -65,6 +65,17 @@ export function useCurrentCycle() {
   /**
    * Retira el anillo activo con el timestamp elegido por la usuaria.
    */
+  /**
+   * Re-reads the active cycle from the database and updates the store.
+   * Call this after any external mutation (e.g. calendar timestamp edit).
+   */
+  const refreshCycle = useCallback(() => {
+    const result = getCurrentCycle(db);
+    if (isOk(result)) {
+      _setCycle(result.value, new Date().toISOString());
+    }
+  }, [db, _setCycle]);
+
   const removeRingAction = useCallback((chosenAt?: string): Result<Cycle, AppError> => {
     const now = chosenAt ?? new Date().toISOString();
 
@@ -88,5 +99,5 @@ export function useCurrentCycle() {
     return repoResult;
   }, [db, currentCycle, _setCycle]);
 
-  return { isLoading, currentCycle, uiState, insertRingAction, removeRingAction };
+  return { isLoading, currentCycle, uiState, insertRingAction, removeRingAction, refreshCycle };
 }

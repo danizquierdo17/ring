@@ -82,10 +82,13 @@ export function deriveUiState(cycle: Cycle | null, now: string): UiState {
 
   if (cycle.status === "ACTIVE") return "RING_IN_USE";
 
-  if (cycle.status === "COMPLETED" && cycle.regimen === "CYCLIC_21_7") {
-    const removedAt = cycle.removedAt!;
-    const freeWindowEnd = addDaysUtc(removedAt, CYCLIC_FREE_DAYS);
-    if (now < freeWindowEnd) return "RING_FREE";
+  // COMPLETED + CYCLIC_21_7: show RING_FREE for the entire free window AND
+  // beyond if the user hasn't inserted a new ring yet. The state only
+  // disappears once a new ACTIVE cycle exists (getCurrentCycle returns it
+  // instead). Using date-level comparison avoids the bug where the window
+  // closes at the exact removal hour on day 7 instead of end-of-day.
+  if (cycle.status === "COMPLETED" && cycle.regimen === "CYCLIC_21_7" && cycle.removedAt) {
+    return "RING_FREE";
   }
 
   return "NO_RING";
@@ -200,6 +203,34 @@ export function calcEarlyLateWarning(
   }
   if (diffHours > thresholdHours) {
     return { kind: 'LATE', hoursLate: Math.round(diffHours) };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// calcInsertionWarning
+// ---------------------------------------------------------------------------
+
+export type InsertionWarning =
+  | { kind: 'EARLY'; hoursEarly: number }
+  | null;
+
+/**
+ * Returns a warning if the user is trying to insert the ring more than
+ * `thresholdHours` before the planned insertion time (end of free window).
+ * Returns null when insertion is within the acceptable window or on time.
+ */
+export function calcInsertionWarning(
+  plannedInsertAt: string,
+  selectedAt: string,
+  thresholdHours = 5,
+): InsertionWarning {
+  const planned  = new Date(plannedInsertAt).getTime();
+  const selected = new Date(selectedAt).getTime();
+  const hoursEarly = (planned - selected) / (1000 * 60 * 60);
+
+  if (hoursEarly > thresholdHours) {
+    return { kind: 'EARLY', hoursEarly: Math.round(hoursEarly) };
   }
   return null;
 }

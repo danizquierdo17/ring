@@ -6,7 +6,8 @@ export type AppErrorCode =
   | "DB_ERROR"
   | "PERMISSION_DENIED"
   | "INVALID_REGIMEN"
-  | "INVALID_CONTINUOUS_DAYS";
+  | "INVALID_CONTINUOUS_DAYS"
+  | "INVALID_LOCALE";
 
 export type AppError = {
   readonly code: AppErrorCode;

@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
 import { ok, err, type Result } from "../../../shared/result";
@@ -18,6 +19,30 @@ Notifications.setNotificationHandler({
 });
 
 // ---------------------------------------------------------------------------
+// Android notification channel
+//
+// Called once at app init (from useNotificationsReconciliation), not on every
+// scheduleAll call, to avoid bridge interference with native dialogs.
+// ---------------------------------------------------------------------------
+
+const CHANNEL_ID = "ringcare-reminders";
+
+export async function initNotificationChannel(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+    name: "Recordatorios de anillo",
+    description: "Avisos de inserción y retirada del anillo anticonceptivo",
+    importance: Notifications.AndroidImportance.MAX,
+    sound: "default",
+    vibrationPattern: [0, 250, 250, 250],
+    enableLights: true,
+    enableVibrate: true,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    bypassDnd: false,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Permission — JIT, never on boot
 // ---------------------------------------------------------------------------
 
@@ -34,11 +59,6 @@ async function requestPermission(): Promise<Result<true, AppError>> {
 
 // ---------------------------------------------------------------------------
 // scheduleAll
-//
-// Cancels any existing notifications whose IDs are in the list, then
-// schedules the new ones. Filters out triggers already in the past.
-// Returns Err(PERMISSION_DENIED) silently if the user denies — the caller
-// decides whether to surface a UI banner.
 // ---------------------------------------------------------------------------
 
 export async function scheduleAll(
@@ -48,42 +68,29 @@ export async function scheduleAll(
   if (!permResult.ok) return permResult;
 
   const now = Date.now();
-  // eslint-disable-next-line no-console
-  console.log(
-    `[Notifications] Scheduling ${notifications.length} notifications; now=${new Date(now).toISOString()}`
-  );
 
   for (const notif of notifications) {
     const triggerMs = new Date(notif.triggerAt).getTime();
+    if (triggerMs <= now) continue;
 
-    // Skip triggers that have already passed
-    if (triggerMs <= now) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[Notifications] Skipping past trigger: id=${notif.id}, triggerAt=${notif.triggerAt}`
-      );
-      continue;
-    }
-
-    // eslint-disable-next-line no-console
-    console.log(
-      `[Notifications] Scheduling: id=${notif.id}, title="${notif.title}", body="${notif.body}", trigger=${new Date(notif.triggerAt).toLocaleString()}`
-    );
-
-    // Cancel any existing instance of this ID to avoid duplicates
-    await Notifications.cancelScheduledNotificationAsync(notif.id).catch(() => {
-      // Ignore — notification may not exist yet
-    });
+    await Notifications.cancelScheduledNotificationAsync(notif.id).catch(() => {});
 
     await Notifications.scheduleNotificationAsync({
       identifier: notif.id,
       content: {
         title: notif.title,
         body: notif.body,
+        sound: "default",
+        ...(Platform.OS === "android" && {
+          channelId: CHANNEL_ID,
+          priority: Notifications.AndroidNotificationPriority.MAX,
+          vibrate: [0, 250, 250, 250],
+        }),
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: new Date(notif.triggerAt),
+        channelId: Platform.OS === "android" ? CHANNEL_ID : undefined,
       },
     });
   }
@@ -92,27 +99,19 @@ export async function scheduleAll(
 }
 
 // ---------------------------------------------------------------------------
-// cancelAll
-//
-// Cancels all scheduled notifications for a given array of IDs.
-// Used when a cycle is interrupted or manually overridden.
+// cancelByIds
 // ---------------------------------------------------------------------------
 
 export async function cancelByIds(ids: string[]): Promise<void> {
   await Promise.all(
     ids.map((id) =>
-      Notifications.cancelScheduledNotificationAsync(id).catch(() => {
-        // Ignore missing IDs
-      })
+      Notifications.cancelScheduledNotificationAsync(id).catch(() => {})
     )
   );
 }
 
 // ---------------------------------------------------------------------------
 // getScheduledIds
-//
-// Returns the identifiers of all currently scheduled notifications.
-// Used by the reconciler to diff expected vs actual.
 // ---------------------------------------------------------------------------
 
 export async function getScheduledIds(): Promise<string[]> {

@@ -4,6 +4,8 @@ import { ok, err, type Result } from "../../../shared/result";
 import type { AppError } from "../../../shared/errors";
 import type { SettingsRow } from "../../../infra/db/schema";
 import type { Regimen } from "../../cycle/domain/cycleStateMachine";
+import type { Locale } from "../../../shared/i18n/translations";
+import type { ThemePreference } from "../../../shared/theme/themeStore";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -12,16 +14,29 @@ import type { Regimen } from "../../cycle/domain/cycleStateMachine";
 export type Settings = {
   readonly regimen: Regimen;
   readonly continuousDays: number;
+  readonly language: Locale;
+  readonly theme: ThemePreference;
 };
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+const VALID_LOCALES: readonly Locale[] = ['es-ES', 'es-419', 'en-US'];
+const VALID_THEMES: readonly ThemePreference[] = ['light', 'dark'];
+
 function rowToSettings(row: SettingsRow): Settings {
+  const lang = VALID_LOCALES.includes(row.language as Locale)
+    ? (row.language as Locale)
+    : 'es-ES';
+  const theme = VALID_THEMES.includes(row.theme as ThemePreference)
+    ? (row.theme as ThemePreference)
+    : 'light';
   return {
     regimen: row.regimen as Regimen,
     continuousDays: row.continuous_days,
+    language: lang,
+    theme,
   };
 }
 
@@ -39,14 +54,16 @@ function dbError(e: unknown): AppError {
 export function getSettings(db: SQLiteDatabase): Result<Settings, AppError> {
   try {
     const row = db.getFirstSync<SettingsRow>(
-      "SELECT id, regimen, continuous_days, created_at, updated_at FROM Settings WHERE id = 1"
+      "SELECT id, regimen, continuous_days, language, theme, created_at, updated_at FROM Settings WHERE id = 1"
     );
 
     if (row === null) {
       // Should never happen due to INSERT OR IGNORE in migration, but provide sensible defaults
       return ok({
-        regimen: "CYCLIC_21_7",
+        regimen: "CYCLIC_21_7" as const,
         continuousDays: 28,
+        language: 'es-ES' as const,
+        theme: 'light' as const,
       });
     }
 
@@ -83,7 +100,7 @@ export function updateRegimen(
 
     // Fetch and return the updated settings
     const row = db.getFirstSync<SettingsRow>(
-      "SELECT id, regimen, continuous_days, created_at, updated_at FROM Settings WHERE id = 1"
+      "SELECT id, regimen, continuous_days, language, theme, created_at, updated_at FROM Settings WHERE id = 1"
     );
 
     if (row === null) {
@@ -127,7 +144,7 @@ export function updateContinuousDays(
 
     // Fetch and return the updated settings
     const row = db.getFirstSync<SettingsRow>(
-      "SELECT id, regimen, continuous_days, created_at, updated_at FROM Settings WHERE id = 1"
+      "SELECT id, regimen, continuous_days, language, theme, created_at, updated_at FROM Settings WHERE id = 1"
     );
 
     if (row === null) {
@@ -137,6 +154,66 @@ export function updateContinuousDays(
       });
     }
 
+    return ok(rowToSettings(row));
+  } catch (e) {
+    return err(dbError(e));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// updateLanguage
+// ---------------------------------------------------------------------------
+
+export function updateLanguage(
+  db: SQLiteDatabase,
+  language: Locale,
+): Result<Settings, AppError> {
+  if (!VALID_LOCALES.includes(language)) {
+    return err({ code: 'INVALID_LOCALE', message: `Unknown locale: ${language}` });
+  }
+  try {
+    const now = new Date().toISOString();
+    db.runSync(
+      'UPDATE Settings SET language = ?, updated_at = ? WHERE id = 1',
+      language,
+      now,
+    );
+    const row = db.getFirstSync<SettingsRow>(
+      'SELECT id, regimen, continuous_days, language, theme, created_at, updated_at FROM Settings WHERE id = 1',
+    );
+    if (row === null) {
+      return err({ code: 'DB_ERROR', message: 'Settings row not found after update' });
+    }
+    return ok(rowToSettings(row));
+  } catch (e) {
+    return err(dbError(e));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// updateTheme
+// ---------------------------------------------------------------------------
+
+export function updateTheme(
+  db: SQLiteDatabase,
+  theme: ThemePreference,
+): Result<Settings, AppError> {
+  if (!VALID_THEMES.includes(theme)) {
+    return err({ code: 'DB_ERROR', message: `Unknown theme: ${theme}` });
+  }
+  try {
+    const now = new Date().toISOString();
+    db.runSync(
+      'UPDATE Settings SET theme = ?, updated_at = ? WHERE id = 1',
+      theme,
+      now,
+    );
+    const row = db.getFirstSync<SettingsRow>(
+      'SELECT id, regimen, continuous_days, language, theme, created_at, updated_at FROM Settings WHERE id = 1',
+    );
+    if (row === null) {
+      return err({ code: 'DB_ERROR', message: 'Settings row not found after update' });
+    }
     return ok(rowToSettings(row));
   } catch (e) {
     return err(dbError(e));

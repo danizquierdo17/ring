@@ -5,6 +5,8 @@ import { ok, err, type Result } from "../../../shared/result";
 import type { AppError } from "../../../shared/errors";
 import type { CycleRow } from "../../../infra/db/schema";
 import type { Cycle, CycleStatus, Regimen } from "../domain/cycleStateMachine";
+import { CYCLIC_RING_DAYS, CONTINUOUS_DEFAULT_DAYS } from "../domain/cycleStateMachine";
+import type { EditableEventField } from "../../calendar/domain/buildMarkedDates";
 
 // ---------------------------------------------------------------------------
 // Public input type
@@ -77,6 +79,32 @@ export function getActiveCycle(
       "SELECT * FROM Cycles WHERE status = 'ACTIVE' LIMIT 1"
     );
     return ok(row !== null ? rowToCycle(row) : null);
+  } catch (e) {
+    return err(dbError(e));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// getCurrentCycle
+// Returns the ACTIVE cycle if one exists, otherwise the most recent COMPLETED
+// cycle so that deriveUiState can detect the RING_FREE window.
+// ---------------------------------------------------------------------------
+
+export function getCurrentCycle(
+  db: SQLiteDatabase
+): Result<Cycle | null, AppError> {
+  try {
+    // Active first
+    const active = db.getFirstSync<CycleRow>(
+      "SELECT * FROM Cycles WHERE status = 'ACTIVE' LIMIT 1"
+    );
+    if (active !== null) return ok(rowToCycle(active));
+
+    // Fall back to most recent completed cycle (for RING_FREE detection)
+    const last = db.getFirstSync<CycleRow>(
+      "SELECT * FROM Cycles WHERE status = 'COMPLETED' ORDER BY removed_at DESC LIMIT 1"
+    );
+    return ok(last !== null ? rowToCycle(last) : null);
   } catch (e) {
     return err(dbError(e));
   }
@@ -180,6 +208,50 @@ export function updateCycle(
     }
 
     return ok(cycle);
+  } catch (e) {
+    return err(dbError(e));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// updateCycleTimestamp
+// Edits inserted_at or removed_at of an existing cycle.
+// When inserted_at changes, planned_removal_at is recalculated automatically.
+// ---------------------------------------------------------------------------
+
+export function updateCycleTimestamp(
+  db: SQLiteDatabase,
+  cycleId: string,
+  field: EditableEventField,
+  newIso: string,
+  regimen: Regimen,
+  continuousDays?: number,
+): Result<Cycle, AppError> {
+  try {
+    const now = new Date().toISOString();
+
+    if (field === 'inserted_at') {
+      const ringDays = regimen === 'CYCLIC_21_7' ? CYCLIC_RING_DAYS : (continuousDays ?? CONTINUOUS_DEFAULT_DAYS);
+      const newPlanned = new Date(newIso);
+      newPlanned.setUTCDate(newPlanned.getUTCDate() + ringDays);
+      const newPlannedIso = newPlanned.toISOString();
+
+      db.runSync(
+        `UPDATE Cycles SET inserted_at = ?, planned_removal_at = ?, updated_at = ? WHERE id = ?`,
+        newIso, newPlannedIso, now, cycleId,
+      );
+    } else {
+      db.runSync(
+        `UPDATE Cycles SET removed_at = ?, updated_at = ? WHERE id = ?`,
+        newIso, now, cycleId,
+      );
+    }
+
+    const row = db.getFirstSync<CycleRow>(`SELECT * FROM Cycles WHERE id = ?`, cycleId);
+    if (!row) {
+      return err({ code: 'CYCLE_NOT_FOUND', message: `Cycle ${cycleId} not found after update.` });
+    }
+    return ok(rowToCycle(row));
   } catch (e) {
     return err(dbError(e));
   }

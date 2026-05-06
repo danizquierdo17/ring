@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { C } from '../theme/colors';
+import { useTheme } from '../theme/useTheme';
+import { useT } from '../i18n/useT';
 import type { UiState } from '../../features/cycle/domain/cycleStateMachine';
 
 type Props = {
@@ -12,6 +13,8 @@ type Props = {
 };
 
 export function CircularProgress({ day, total, uiState, size = 260 }: Props) {
+  const c = useTheme();
+  const t = useT();
   const R = Math.round(size * 0.415);
   const cx = size / 2;
   const cy = size / 2;
@@ -19,10 +22,10 @@ export function CircularProgress({ day, total, uiState, size = 260 }: Props) {
   const progress = Math.min(day / total, 1);
   const strokeDashoffset = circumference * (1 - progress);
 
-  const trackColor = C.slate100;
+  const trackColor = c.slate100;
   const progressColor =
-    uiState === 'NO_RING'    ? C.slate200 :
-    uiState === 'RING_FREE'  ? C.emerald  :
+    uiState === 'NO_RING'    ? c.slate200 :
+    uiState === 'RING_FREE'  ? c.emerald  :
     'url(#indigoGrad)';
 
   return (
@@ -35,8 +38,8 @@ export function CircularProgress({ day, total, uiState, size = 260 }: Props) {
       >
         <Defs>
           <LinearGradient id="indigoGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <Stop offset="0%" stopColor={C.indigo} />
-            <Stop offset="100%" stopColor={C.indigoLight} />
+            <Stop offset="0%" stopColor={c.indigo} />
+            <Stop offset="100%" stopColor={c.indigoLight} />
           </LinearGradient>
         </Defs>
         {/* Track */}
@@ -57,25 +60,25 @@ export function CircularProgress({ day, total, uiState, size = 260 }: Props) {
       <View style={{ alignItems: 'center', zIndex: 1 }}>
         {uiState === 'RING_IN_USE' && (
           <>
-            <Text style={{ fontSize: 11, color: C.slate400, fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 2 }}>
-              Día
+            <Text style={{ fontSize: 11, color: c.slate400, fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 2 }}>
+              {t.home_step_inserted}
             </Text>
-            <Text style={{ fontSize: 56, fontWeight: '800', color: C.text, lineHeight: 60, letterSpacing: -2 }}>
+            <Text style={{ fontSize: 56, fontWeight: '800', color: c.text, lineHeight: 60, letterSpacing: -2 }}>
               {day}
             </Text>
-            <Text style={{ fontSize: 14, color: C.slate400, fontWeight: '500', marginTop: 2 }}>
-              de {total}
+            <Text style={{ fontSize: 14, color: c.slate400, fontWeight: '500', marginTop: 2 }}>
+              {t.home_info_days_of(total)}
             </Text>
-            <Text style={{ fontSize: 11, color: C.slate400, marginTop: 6, fontWeight: '500' }}>
-              Anillo en uso
+            <Text style={{ fontSize: 11, color: c.slate400, marginTop: 6, fontWeight: '500' }}>
+              {t.home_status_ring_in_use}
             </Text>
           </>
         )}
 
         {uiState === 'NO_RING' && (
           <>
-            <Text style={{ fontSize: 11, color: C.slate400, fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>
-              Sin anillo
+            <Text style={{ fontSize: 11, color: c.slate400, fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>
+              {t.home_status_no_ring}
             </Text>
             <Text style={{ fontSize: 32, lineHeight: 36 }}>💍</Text>
           </>
@@ -83,14 +86,14 @@ export function CircularProgress({ day, total, uiState, size = 260 }: Props) {
 
         {uiState === 'RING_FREE' && (
           <>
-            <Text style={{ fontSize: 11, color: C.slate400, fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>
-              Descanso
+            <Text style={{ fontSize: 11, color: c.slate400, fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>
+              {t.home_status_ring_free}
             </Text>
-            <Text style={{ fontSize: 44, fontWeight: '800', color: C.emeraldDark, lineHeight: 48 }}>
+            <Text style={{ fontSize: 44, fontWeight: '800', color: c.emeraldDark, lineHeight: 48 }}>
               {day}
             </Text>
-            <Text style={{ fontSize: 13, color: C.slate400, fontWeight: '500', marginTop: 4 }}>
-              de 7 días
+            <Text style={{ fontSize: 13, color: c.slate400, fontWeight: '500', marginTop: 4 }}>
+              {t.home_info_days_of(7)}
             </Text>
           </>
         )}

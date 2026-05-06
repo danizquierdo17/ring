@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "_expo_tmp",
-    "slug": "_expo_tmp",
+    "name": "LUA Ring",
+    "slug": "lua-ring",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,9 +13,18 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.luaring.app"
     },
     "android": {
+      "package": "com.luaring.app",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -23,12 +32,32 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#3A3CF6"
+    },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-sqlite",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#3A3CF6",
+          "androidMode": "default",
+          "androidCollapsedTitle": "LUA Ring",
+          "iosDisplayInForeground": true
+        }
+      ],
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "77257f32-75ea-40d1-91d1-b2c4eda2f639"
+      }
+    },
+    "owner": "danizquierdo17"
   }
 }

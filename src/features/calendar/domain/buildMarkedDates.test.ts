@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { buildMarkedDates } from "./buildMarkedDates";
+import { buildMarkedDates, buildEditableEvents } from "./buildMarkedDates";
 import type { Cycle } from "../../cycle/domain/cycleStateMachine";
 
 // Color values mirrored from shared/theme/colors — kept local so this
@@ -143,9 +143,22 @@ describe("buildMarkedDates — CYCLIC_21_7 free window", () => {
     expect(marks["2025-01-27"]).toMatchObject({ color: LAVENDER, endingDay: true });
   });
 
-  it("planned insertion day (removedAt + 7 = Jan 28) has emerald border", () => {
-    const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
+  it("planned insertion day (removedAt + 7 = Jan 28) has emerald border when still in the future", () => {
+    // now = Jan 25, so Jan 28 is still future → mark shown
+    const marks = buildMarkedDates([cycle], "2025-01-25T12:00:00.000Z");
     expect(marks["2025-01-28"]).toMatchObject({ color: LAVENDER, borderColor: "#2ECC9A", startingDay: true, endingDay: true });
+  });
+
+  it("planned insertion day is NOT shown when now is a later date (past it)", () => {
+    // now = Feb 1 (a different date, not Jan 28) → should not appear
+    const marks = buildMarkedDates([cycle], "2025-02-01T12:00:00.000Z");
+    expect(marks["2025-01-28"]).toBeUndefined();
+  });
+
+  it("planned insertion day IS shown when now is the same day (any time)", () => {
+    // now = Jan 28 at 23:59 — mark should still be visible on Jan 28
+    const marks = buildMarkedDates([cycle], "2025-01-28T23:59:00.000Z");
+    expect(marks["2025-01-28"]).toMatchObject({ color: LAVENDER, borderColor: "#2ECC9A" });
   });
 
   it("day Jan 25 is inside the free window", () => {
@@ -205,12 +218,69 @@ describe("buildMarkedDates — multiple cycles", () => {
     // Free band: Dec 22 (start) to Dec 27 (end, = removedAt+6)
     expect(marks["2024-12-22"]).toMatchObject({ color: LAVENDER, startingDay: true });
     expect(marks["2024-12-27"]).toMatchObject({ color: LAVENDER, endingDay: true });
-    // Planned insertion: Dec 28 (= removedAt+7) has emerald border
-    expect(marks["2024-12-28"]).toMatchObject({ color: LAVENDER, borderColor: "#2ECC9A" });
+    // Planned insertion (Dec 28) is in the past (now=Jan 5) and cycle2 already started →
+    // the mark is not shown; Dec 28 is overwritten by cycle2's emerald insertion day
+    expect(marks["2024-12-28"]).toBeUndefined();
   });
 
   it("cycle1 removal day is coral", () => {
     const marks = buildMarkedDates([cycle1, cycle2], "2025-01-05T12:00:00.000Z");
     expect(marks["2024-12-21"]).toMatchObject({ color: CORAL });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildEditableEvents
+// ---------------------------------------------------------------------------
+
+describe("buildEditableEvents", () => {
+  it("returns insertion day for active cycle", () => {
+    const cycle = makeCycle({ insertedAt: "2025-01-01T10:00:00.000Z", status: "ACTIVE" });
+    const events = buildEditableEvents([cycle]);
+    expect(events["2025-01-01"]).toBeDefined();
+    expect(events["2025-01-01"]!.field).toBe("inserted_at");
+    expect(events["2025-01-01"]!.cycleId).toBe("test-id");
+  });
+
+  it("does not return removal day for active cycle", () => {
+    const cycle = makeCycle({ insertedAt: "2025-01-01T10:00:00.000Z", status: "ACTIVE" });
+    const events = buildEditableEvents([cycle]);
+    // plannedRemovalAt is 2025-01-22 — should NOT be editable
+    expect(events["2025-01-22"]).toBeUndefined();
+  });
+
+  it("returns both insertion and removal day for completed cycle", () => {
+    const cycle = makeCycle({
+      insertedAt: "2025-01-01T10:00:00.000Z",
+      removedAt: "2025-01-21T10:00:00.000Z",
+      status: "COMPLETED",
+    });
+    const events = buildEditableEvents([cycle]);
+    expect(events["2025-01-01"]!.field).toBe("inserted_at");
+    expect(events["2025-01-21"]!.field).toBe("removed_at");
+  });
+
+  it("removal event has pairedIso = insertedAt", () => {
+    const cycle = makeCycle({
+      insertedAt: "2025-01-01T10:00:00.000Z",
+      removedAt: "2025-01-21T10:00:00.000Z",
+      status: "COMPLETED",
+    });
+    const events = buildEditableEvents([cycle]);
+    expect(events["2025-01-21"]!.pairedIso).toBe("2025-01-01T10:00:00.000Z");
+  });
+
+  it("insertion event has pairedIso = removedAt when completed", () => {
+    const cycle = makeCycle({
+      insertedAt: "2025-01-01T10:00:00.000Z",
+      removedAt: "2025-01-21T10:00:00.000Z",
+      status: "COMPLETED",
+    });
+    const events = buildEditableEvents([cycle]);
+    expect(events["2025-01-01"]!.pairedIso).toBe("2025-01-21T10:00:00.000Z");
+  });
+
+  it("returns empty object for empty cycles", () => {
+    expect(buildEditableEvents([])).toEqual({});
   });
 });

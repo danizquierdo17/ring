@@ -23,6 +23,8 @@ export type SettingsRow = {
   id: 1; // Single row per design
   regimen: string;
   continuous_days: number;
+  language: string;
+  theme: string;
   created_at: string;
   updated_at: string;
 };
