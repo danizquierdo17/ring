@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
 import { useTheme } from '../../../shared/theme/useTheme';
 import { useT } from '../../../shared/i18n/useT';
@@ -17,6 +18,8 @@ export function LunaScreen() {
   const { state, setCycleStartDate, saveDayData } = useLunaData();
   const t = useT();
   const c = useTheme();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const navigation = useNavigation<any>();
 
   const [selectedDay, setSelectedDay]       = useState<number | null>(null);
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
@@ -63,14 +66,24 @@ export function LunaScreen() {
           <Text style={{ fontSize: 19, fontWeight: '800', color: c.text, letterSpacing: -0.5 }}>{t.luna_title}</Text>
           <Text style={{ fontSize: 11, color: subtleText, marginTop: 1 }}>{cycleLabel}</Text>
         </View>
-        <TouchableOpacity
-          onPress={() => setShowPeriodPicker(true)}
-          style={{ backgroundColor: '#C94040', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, shadowColor: '#C94040', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }}
-          accessibilityRole="button"
-          accessibilityLabel={t.luna_period_btn_a11y}
-        >
-          <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff', letterSpacing: 0.3 }}>{t.luna_period_btn}</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('LunaHistory')}
+            style={{ backgroundColor: c.lavender, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 }}
+            accessibilityRole="button"
+            accessibilityLabel={t.luna_history_btn_a11y}
+          >
+            <Text style={{ fontSize: 10, fontWeight: '700', color: c.indigo, letterSpacing: 0.3 }}>{t.luna_history_btn}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowPeriodPicker(true)}
+            style={{ backgroundColor: '#C94040', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, shadowColor: '#C94040', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }}
+            accessibilityRole="button"
+            accessibilityLabel={t.luna_period_btn_a11y}
+          >
+            <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff', letterSpacing: 0.3 }}>{t.luna_period_btn}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Today indicator */}

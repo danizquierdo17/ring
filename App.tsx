@@ -21,10 +21,12 @@ const SettingsIcon = Settings as React.ComponentType<any>;
 const MoonIcon = Moon as React.ComponentType<any>;
 
 import { C } from "./src/shared/theme/colors";
+import { useTheme } from "./src/shared/theme/useTheme";
+import { ThemeBootstrapper } from "./src/shared/theme/ThemeBootstrapper";
 import { initializeDatabase } from "./src/infra/db/client";
 import { HomeScreen } from "./src/features/cycle/ui/HomeScreen";
 import { CalendarScreen } from "./src/features/calendar/ui/CalendarScreen";
-import { LunaScreen } from "./src/features/luna/ui/LunaScreen";
+import { LunaNavigator } from "./src/features/luna/ui/LunaNavigator";
 import { SettingsScreen } from "./src/features/settings/ui/SettingsScreen";
 import { ProspectusCenterScreen } from "./src/features/settings/ui/ProspectusCenterScreen";
 import { BackupScreen } from "./src/features/backup/ui/BackupScreen";
@@ -80,15 +82,16 @@ function NotificationsInit() {
 // ---------------------------------------------------------------------------
 
 function RootTabs() {
+  const c = useTheme();
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: C.indigo,
-        tabBarInactiveTintColor: C.slate400,
+        tabBarActiveTintColor: c.indigo,
+        tabBarInactiveTintColor: c.slate400,
         tabBarStyle: {
-          borderTopColor: C.slate100,
-          backgroundColor: C.white,
+          borderTopColor: c.border,
+          backgroundColor: c.surface,
         },
       }}
     >
@@ -114,7 +117,7 @@ function RootTabs() {
       />
       <Tab.Screen
         name="Ciclograma"
-        component={LunaScreen}
+        component={LunaNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
             <MoonIcon color={color} size={size} />
@@ -140,20 +143,49 @@ function RootTabs() {
 // App entry point
 // ---------------------------------------------------------------------------
 
+function ThemedShell() {
+  const c = useTheme();
+  return (
+    <>
+      <StatusBar style={c.isDark ? "light" : "dark"} />
+      <NotificationsInit />
+      <NavigationContainer
+        theme={{
+          dark: c.isDark,
+          colors: {
+            primary: c.indigo,
+            background: c.bg,
+            card: c.surface,
+            text: c.text,
+            border: c.border,
+            notification: c.coral,
+          },
+          fonts: {
+            regular: { fontFamily: 'System', fontWeight: '400' },
+            medium: { fontFamily: 'System', fontWeight: '500' },
+            bold: { fontFamily: 'System', fontWeight: '700' },
+            heavy: { fontFamily: 'System', fontWeight: '900' },
+          },
+        }}
+      >
+        <RootTabs />
+      </NavigationContainer>
+    </>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
       <ActionSheetProvider>
         <SQLiteProvider
           databaseName="ringcare.db"
           onInit={async (db) => initializeDatabase(db)}
         >
           <Suspense fallback={<DBLoadingFallback />}>
-            <NotificationsInit />
-            <NavigationContainer>
-              <RootTabs />
-            </NavigationContainer>
+            <ThemeBootstrapper>
+              <ThemedShell />
+            </ThemeBootstrapper>
           </Suspense>
         </SQLiteProvider>
       </ActionSheetProvider>

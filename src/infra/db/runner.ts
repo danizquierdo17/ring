@@ -4,6 +4,7 @@ import { migration002 } from "./migrations/002_add_settings";
 import { migration003 } from "./migrations/003_add_luna";
 import { migration004 } from "./migrations/004_add_language";
 import { migration005 } from "./migrations/005_add_theme";
+import { migration006 } from "./migrations/006_add_luna_history";
 
 const SCHEMA_MIGRATIONS_BOOTSTRAP = `
   CREATE TABLE IF NOT EXISTS SchemaMigrations (
@@ -52,6 +53,13 @@ export function runMigrations(db: SQLiteDatabase): void {
     db.withTransactionSync(() => {
       db.execSync(migration005);
       db.runSync("INSERT INTO SchemaMigrations (version) VALUES (?)", 5);
+    });
+  }
+
+  if (currentVersion < 6) {
+    db.withTransactionSync(() => {
+      db.execSync(migration006);
+      db.runSync("INSERT INTO SchemaMigrations (version) VALUES (?)", 6);
     });
   }
 }

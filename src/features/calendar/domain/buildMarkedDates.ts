@@ -21,16 +21,23 @@ export type MarkedDates = Record<string, DayMark>;
 // and runs cleanly in the node jest environment.
 // ---------------------------------------------------------------------------
 
-const COLOR_INSERT          = "#2ECC9A"; // emerald: confirmed insertion
-const COLOR_RING            = "#3A3CF6"; // indigo:  active ring band
-const COLOR_REMOVE          = "#FF6B7A"; // coral:   confirmed removal
-const COLOR_PLANNED_REMOVAL = "#E7E6FF"; // lavender: planned removal bg
-const COLOR_FREE            = "#E7E6FF"; // lavender: free-window band
-const COLOR_PLANNED_INSERT  = "#E7E6FF"; // lavender: planned insertion bg
-const BORDER_PLANNED_REMOVE = "#FF6B7A"; // coral border on planned removal
-const BORDER_PLANNED_INSERT = "#2ECC9A"; // emerald border on planned insertion
-const TEXT_DARK             = "#3A3CF6"; // indigo on light backgrounds
-const TEXT_LIGHT            = "#ffffff";
+export type MarkPalette = {
+  insert: string;
+  ring: string;
+  remove: string;
+  lavender: string;
+  textOnLavender: string;
+  textOnAccent: string;
+};
+
+export const DEFAULT_MARK_PALETTE: MarkPalette = {
+  insert: "#2ECC9A",
+  ring: "#3A3CF6",
+  remove: "#FF6B7A",
+  lavender: "#E7E6FF",
+  textOnLavender: "#3A3CF6",
+  textOnAccent: "#ffffff",
+};
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -140,7 +147,22 @@ export function buildEditableEvents(cycles: Cycle[]): Record<string, EditableEve
  *   - Coral dot on removedAt
  *   - Lavender band for 7-day free window (CYCLIC_21_7 only)
  */
-export function buildMarkedDates(cycles: Cycle[], now: string): MarkedDates {
+export function buildMarkedDates(
+  cycles: Cycle[],
+  now: string,
+  palette: MarkPalette = DEFAULT_MARK_PALETTE,
+): MarkedDates {
+  const COLOR_INSERT = palette.insert;
+  const COLOR_RING = palette.ring;
+  const COLOR_REMOVE = palette.remove;
+  const COLOR_PLANNED_REMOVAL = palette.lavender;
+  const COLOR_FREE = palette.lavender;
+  const COLOR_PLANNED_INSERT = palette.lavender;
+  const BORDER_PLANNED_REMOVE = palette.remove;
+  const BORDER_PLANNED_INSERT = palette.insert;
+  const TEXT_DARK = palette.textOnLavender;
+  const TEXT_LIGHT = palette.textOnAccent;
+
   const marks: MarkedDates = {};
 
   // Process oldest → newest so that marks from more recent cycles always win.

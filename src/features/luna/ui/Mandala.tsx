@@ -4,6 +4,7 @@ import type { GestureResponderEvent } from 'react-native';
 import Svg, { Circle, Path, Text as SvgText, G, Line } from 'react-native-svg';
 import type { DayData } from '../data/lunaRepo';
 import { getMoonPhaseDay, addDays } from '../domain/moonPhase';
+import { useTheme } from '../../../shared/theme/useTheme';
 
 // ── Base proportions (relative to base SIZE 332) ─────────────────────────────
 const BASE   = 332;
@@ -86,6 +87,34 @@ export const Mandala = memo(function Mandala({
   days, cycleStartDate, todayDay, periodDays, onDayTap, size: sizeProp,
 }: Props) {
   const { width } = useWindowDimensions();
+  const c = useTheme();
+  const M = c.isDark
+    ? {
+        outerFill: '#1a1620',
+        midFill: '#221c2a',
+        innerFill: '#2a2334',
+        centerFill: c.surface,
+        outerStroke: '#3a3146',
+        innerStroke: '#3a3146',
+        petalStroke: c.bg,
+        defaultPetal: '#3a3340',
+        dayNumColor: '#9890a8',
+        labelColor: '#a59ab8',
+        subLabelColor: '#7c708c',
+      }
+    : {
+        outerFill: '#faf7f0',
+        midFill: '#f5f2ec',
+        innerFill: '#ffffff',
+        centerFill: '#ffffff',
+        outerStroke: COLOR_DARK_BORDER,
+        innerStroke: '#ece8e0',
+        petalStroke: 'white',
+        defaultPetal: COLOR_DEFAULT,
+        dayNumColor: '#8a8478',
+        labelColor: '#a09898',
+        subLabelColor: '#c0b8c8',
+      };
   const SIZE = sizeProp ?? Math.min(width - 16, BASE * 1.25);
   const s    = SIZE / BASE; // scale factor
   const CX   = SIZE / 2;
@@ -120,10 +149,10 @@ export const Mandala = memo(function Mandala({
       <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
 
         {/* Background circles */}
-        <Circle cx={CX} cy={CY} r={R_OUT} fill="#faf7f0" stroke={COLOR_DARK_BORDER} strokeWidth={1 * s} />
-        <Circle cx={CX} cy={CY} r={R_MI}  fill="#f5f2ec" stroke={COLOR_BORDER}      strokeWidth={0.5 * s} />
-        <Circle cx={CX} cy={CY} r={R_P}   fill="white"   stroke="#ece8e0"           strokeWidth={0.5 * s} />
-        <Circle cx={CX} cy={CY} r={R_C}   fill="white"   stroke={COLOR_DARK_BORDER} strokeWidth={1.5 * s} />
+        <Circle cx={CX} cy={CY} r={R_OUT} fill={M.outerFill} stroke={M.outerStroke} strokeWidth={1 * s} />
+        <Circle cx={CX} cy={CY} r={R_MI}  fill={M.midFill}   stroke={COLOR_BORDER}  strokeWidth={0.5 * s} />
+        <Circle cx={CX} cy={CY} r={R_P}   fill={M.innerFill} stroke={M.innerStroke} strokeWidth={0.5 * s} />
+        <Circle cx={CX} cy={CY} r={R_C}   fill={M.centerFill} stroke={M.outerStroke} strokeWidth={1.5 * s} />
 
         {/* 28 Sectors */}
         {Array.from({ length: DAYS }, (_, i) => {
@@ -139,7 +168,7 @@ export const Mandala = memo(function Mandala({
             ? dayData.color
             : hasPeriod
             ? COLOR_PERIOD
-            : COLOR_DEFAULT;
+            : M.defaultPetal;
 
           let mp = 0;
           if (cycleStartDate) {
@@ -160,7 +189,7 @@ export const Mandala = memo(function Mandala({
               <Path
                 d={sectorPath(CX, CY, R_C, R_P, startDeg + 0.5, endDeg - 0.5)}
                 fill={fill}
-                stroke="white"
+                stroke={M.petalStroke}
                 strokeWidth={1.5 * s}
                 opacity={0.95}
               />
@@ -204,7 +233,7 @@ export const Mandala = memo(function Mandala({
                 dominantBaseline="middle"
                 fontSize={isToday ? 8.5 * s : 7.5 * s}
                 fontWeight={isToday ? '800' : '500'}
-                fill={isToday ? COLOR_INDIGO : '#8a8478'}
+                fill={isToday ? COLOR_INDIGO : M.dayNumColor}
                 rotation={textRot}
                 origin={`${nx}, ${ny}`}
               >
@@ -233,21 +262,21 @@ export const Mandala = memo(function Mandala({
         })}
 
         {/* Ring borders (on top) */}
-        <Circle cx={CX} cy={CY} r={R_OUT} fill="none" stroke={COLOR_DARK_BORDER} strokeWidth={1 * s} />
-        <Circle cx={CX} cy={CY} r={R_MI}  fill="none" stroke={COLOR_BORDER}      strokeWidth={0.5 * s} />
-        <Circle cx={CX} cy={CY} r={R_P}   fill="none" stroke={COLOR_BORDER}      strokeWidth={0.5 * s} />
-        <Circle cx={CX} cy={CY} r={R_C}   fill="none" stroke={COLOR_DARK_BORDER} strokeWidth={1.5 * s} />
+        <Circle cx={CX} cy={CY} r={R_OUT} fill="none" stroke={M.outerStroke} strokeWidth={1 * s} />
+        <Circle cx={CX} cy={CY} r={R_MI}  fill="none" stroke={COLOR_BORDER}  strokeWidth={0.5 * s} />
+        <Circle cx={CX} cy={CY} r={R_P}   fill="none" stroke={COLOR_BORDER}  strokeWidth={0.5 * s} />
+        <Circle cx={CX} cy={CY} r={R_C}   fill="none" stroke={M.outerStroke} strokeWidth={1.5 * s} />
 
         {/* Center */}
-        <Circle cx={CX} cy={CY} r={R_C} fill="white" stroke="#e0dbd0" strokeWidth={1.5 * s} />
+        <Circle cx={CX} cy={CY} r={R_C} fill={M.centerFill} stroke={M.outerStroke} strokeWidth={1.5 * s} />
         <SvgText x={CX} y={CY - 10 * s} textAnchor="middle" fontSize={7 * s} fontWeight="700"
-          fill="#a09898" letterSpacing={1.5}>
+          fill={M.labelColor} letterSpacing={1.5}>
           CICLO
         </SvgText>
         <SvgText x={CX} y={CY + 5 * s} textAnchor="middle" fontSize={15 * s}>
           🌙
         </SvgText>
-        <SvgText x={CX} y={CY + 18 * s} textAnchor="middle" fontSize={6.5 * s} fontWeight="600" fill="#c0b8c8">
+        <SvgText x={CX} y={CY + 18 * s} textAnchor="middle" fontSize={6.5 * s} fontWeight="600" fill={M.subLabelColor}>
           28 días
         </SvgText>
       </Svg>

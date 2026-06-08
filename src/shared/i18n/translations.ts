@@ -38,6 +38,12 @@ export type TranslationMap = {
   luna_period_btn: string; luna_today_label: (day: number) => string;
   luna_legend_period: string; luna_legend_today: string; luna_legend_tap: string;
   luna_period_btn_a11y: string;
+  luna_history_btn: string; luna_history_btn_a11y: string;
+  luna_history_title: string; luna_history_empty: string; luna_history_empty_hint: string;
+  luna_history_filled: (n: number) => string;
+  luna_history_back: string;
+  luna_snapshot_title: (range: string) => string;
+  luna_snapshot_subtitle: (n: number) => string;
   period_modal_title: string; period_modal_subtitle: string;
   period_opt_today: string; period_opt_yesterday: string;
   period_opt_2days: string; period_opt_3days: string; period_opt_4days: string;
@@ -158,6 +164,15 @@ const translations: Record<Locale, TranslationMap> = {
     luna_legend_today: 'Hoy',
     luna_legend_tap: 'Toca para registrar',
     luna_period_btn_a11y: 'Marcar inicio de menstruación',
+    luna_history_btn: 'Historial',
+    luna_history_btn_a11y: 'Ver ciclos pasados',
+    luna_history_title: 'Ciclos pasados',
+    luna_history_empty: 'Aún no hay ciclos guardados',
+    luna_history_empty_hint: 'Cuando empieces un nuevo ciclo, el actual se guardará aquí.',
+    luna_history_filled: (n: number) => `${n} días registrados`,
+    luna_history_back: 'Volver',
+    luna_snapshot_title: (range: string) => range,
+    luna_snapshot_subtitle: (n: number) => `${n} días registrados`,
 
     // ── Period start modal ─────────────────────────────────────────────────
     period_modal_title: '¿Cuándo empezó la regla?',
@@ -357,6 +372,15 @@ const translations: Record<Locale, TranslationMap> = {
     luna_legend_today: 'Hoy',
     luna_legend_tap: 'Toca para registrar',
     luna_period_btn_a11y: 'Marcar inicio de menstruación',
+    luna_history_btn: 'Historial',
+    luna_history_btn_a11y: 'Ver ciclos pasados',
+    luna_history_title: 'Ciclos pasados',
+    luna_history_empty: 'Aún no hay ciclos guardados',
+    luna_history_empty_hint: 'Cuando empieces un nuevo ciclo, el actual se guardará aquí.',
+    luna_history_filled: (n: number) => `${n} días registrados`,
+    luna_history_back: 'Volver',
+    luna_snapshot_title: (range: string) => range,
+    luna_snapshot_subtitle: (n: number) => `${n} días registrados`,
 
     period_modal_title: '¿Cuándo comenzó el período?',
     period_modal_subtitle: 'Primer día del sangrado',
@@ -550,6 +574,15 @@ const translations: Record<Locale, TranslationMap> = {
     luna_legend_today: 'Today',
     luna_legend_tap: 'Tap to log',
     luna_period_btn_a11y: 'Mark period start',
+    luna_history_btn: 'History',
+    luna_history_btn_a11y: 'View past cycles',
+    luna_history_title: 'Past cycles',
+    luna_history_empty: 'No cycles saved yet',
+    luna_history_empty_hint: 'When you start a new cycle, the current one will be saved here.',
+    luna_history_filled: (n: number) => `${n} days logged`,
+    luna_history_back: 'Back',
+    luna_snapshot_title: (range: string) => range,
+    luna_snapshot_subtitle: (n: number) => `${n} days logged`,
 
     period_modal_title: 'When did your period start?',
     period_modal_subtitle: 'First day of bleeding',
