@@ -8,6 +8,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSettings } from '../hooks/useSettings';
 import type { Regimen } from '../../cycle/domain/cycleStateMachine';
 import { useCycleStore } from '../../cycle/hooks/useCycleStore';
+import { useStock } from '../../stock/hooks/useStock';
+import { StockSettingsRow } from '../../stock/ui/StockSettingsRow';
+import { StockSheet } from '../../stock/ui/StockSheet';
+import { reconcileNotifications } from '../../notifications/hooks/useNotificationsReconciliation';
 import { useTheme } from '../../../shared/theme/useTheme';
 import type { ThemePreference } from '../../../shared/theme/themeStore';
 import { useT } from '../../../shared/i18n/useT';
@@ -39,7 +43,9 @@ type Props = {
 };
 
 export function SettingsScreen({ navigation }: Props) {
-  const { settings, isLoading, setRegimen, setContinuousDays, setLanguage, setTheme } = useSettings();
+  const { settings, isLoading, setRegimen, setContinuousDays, setLanguage, setTheme, reloadSettings } = useSettings();
+  const { stock, project, saveStock } = useStock();
+  const [stockSheetVisible, setStockSheetVisible] = React.useState(false);
   const db = useSQLiteContext();
   const t = useT();
   const c = useTheme();
@@ -98,10 +104,12 @@ export function SettingsScreen({ navigation }: Props) {
                 db.execSync('DELETE FROM Cycles');
                 db.execSync('DELETE FROM LunaDays');
                 db.runSync(`UPDATE LunaConfig SET cycle_start_date = NULL, updated_at = datetime('now') WHERE id = 1`);
-                db.runSync(`UPDATE Settings SET regimen = 'CYCLIC_21_7', continuous_days = 28, updated_at = datetime('now') WHERE id = 1`);
+                db.runSync(`UPDATE Settings SET regimen = 'CYCLIC_21_7', continuous_days = 28, ring_stock_count = 0, ring_stock_threshold = 1, buy_reminder_hours = '[24]', ring_stock_configured_at = NULL, updated_at = datetime('now') WHERE id = 1`);
               });
               // Reset the cycle store so HomeScreen reflects the empty state immediately
               _setCycle(null, new Date().toISOString());
+              reloadSettings();
+              void reconcileNotifications(db);
               Alert.alert(t.settings_delete_done_title, t.settings_delete_done_body);
             } catch (e) {
               Alert.alert(t.home_alert_error, e instanceof Error ? e.message : t.settings_delete_error);
@@ -232,6 +240,11 @@ export function SettingsScreen({ navigation }: Props) {
               </View>
               <Text style={{ fontSize: 11, color: c.slate400, textAlign: 'center' }}>{t.settings_days_range}</Text>
             </View>
+          )}
+
+          {/* Reserva de anillos */}
+          {stock !== null && (
+            <StockSettingsRow stock={stock} onPress={() => setStockSheetVisible(true)} />
           )}
 
           {/* Centro de ayuda row */}
@@ -482,6 +495,16 @@ export function SettingsScreen({ navigation }: Props) {
         </View>
 
       </ScrollView>
+
+      {stock !== null && (
+        <StockSheet
+          visible={stockSheetVisible}
+          initial={stock}
+          project={project}
+          onSave={saveStock}
+          onClose={() => setStockSheetVisible(false)}
+        />
+      )}
     </SafeAreaView>
   );
 }

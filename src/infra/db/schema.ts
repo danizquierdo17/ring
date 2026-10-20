@@ -25,6 +25,10 @@ export type SettingsRow = {
   continuous_days: number;
   language: string;
   theme: string;
+  ring_stock_count: number;
+  ring_stock_threshold: number;
+  buy_reminder_hours: string; // JSON array, e.g. "[48,24]"
+  ring_stock_configured_at: string | null; // first time the user saved her stock
   created_at: string;
   updated_at: string;
 };

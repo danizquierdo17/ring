@@ -1,5 +1,6 @@
 import type { Cycle } from "../../cycle/domain/cycleStateMachine";
 import { CYCLIC_FREE_DAYS } from "../../cycle/domain/cycleStateMachine";
+import { buyBy, needsBuyWarning, type StockSettings } from "../../stock/domain/stock";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -198,6 +199,70 @@ export function planNotifications(
   }
 
   return [];
+}
+
+// ---------------------------------------------------------------------------
+// Buy reminders (ring stock)
+// ---------------------------------------------------------------------------
+
+export const BUY_REMINDER_ID_PREFIX = "buy-rings-";
+const BUY_REMINDER_HOUR = 10; // 10:00 local time on the buy-by day
+
+export type BuyReminderStock = StockSettings & {
+  readonly daysPerRing: number;
+  readonly configured: boolean; // the user has saved her stock at least once
+};
+
+/** Localised texts, injected so the planner stays pure. */
+export type BuyReminderCopy = {
+  readonly title: string;
+  readonly body: (count: number, buyByAt: string) => string;
+};
+
+/** Device UTC offset in minutes in force at a given instant (differs across DST changes). */
+export type UtcOffsetAt = (isoUtc: string) => number;
+
+type LocalDate = { readonly y: number; readonly m: number; readonly d: number };
+
+function localDateOf(isoUtc: string, offsetAt: UtcOffsetAt): LocalDate {
+  const local = new Date(new Date(isoUtc).getTime() + offsetAt(isoUtc) * 60_000);
+  return { y: local.getUTCFullYear(), m: local.getUTCMonth(), d: local.getUTCDate() };
+}
+
+/** `hour`:00 local on the calendar day `daysOffset` days from `date`, using the offset in force then. */
+function atLocalHour(date: LocalDate, daysOffset: number, hour: number, offsetAt: UtcOffsetAt): string {
+  const wallClock = Date.UTC(date.y, date.m, date.d + daysOffset, hour);
+  const approx = wallClock - offsetAt(new Date(wallClock).toISOString()) * 60_000;
+  return new Date(wallClock - offsetAt(new Date(approx).toISOString()) * 60_000).toISOString();
+}
+
+/**
+ * Pure function. When the stock has been configured and is low, returns one
+ * reminder per chosen lead time before the buy-by day at 10:00 local,
+ * skipping those already past. "N h antes" means N/24 calendar days before at
+ * 10:00 local, so a DST change in between never moves it to 9:00 or 11:00.
+ * IDs are fixed per lead time so the reconciler replaces or cancels them.
+ */
+export function planBuyReminders(
+  cycle: Cycle | null,
+  stock: BuyReminderStock,
+  now: string,
+  offsetAt: UtcOffsetAt,
+  copy: BuyReminderCopy,
+): ScheduledNotification[] {
+  if (!needsBuyWarning(stock.count, stock.threshold, stock.configured)) return [];
+
+  const buyByDate = localDateOf(buyBy(cycle, stock.count, now, stock.daysPerRing), offsetAt);
+  const body = copy.body(stock.count, atLocalHour(buyByDate, 0, BUY_REMINDER_HOUR, offsetAt));
+
+  return stock.buyReminderHours
+    .map((hours) => ({
+      id: `${BUY_REMINDER_ID_PREFIX}${hours}h`,
+      triggerAt: atLocalHour(buyByDate, -hours / 24, BUY_REMINDER_HOUR, offsetAt),
+      title: copy.title,
+      body,
+    }))
+    .filter((n) => isBefore(now, n.triggerAt));
 }
 
 // Made with Bob

@@ -35,6 +35,8 @@ export const lightColors = {
   // Overlay
   overlay:     'rgba(0,0,0,0.4)',
   overlayLight:'rgba(0,0,0,0.05)',
+  // Soft coral background (low ring stock)
+  coralBg:     '#FFF1F2',
 } as const;
 
 export const darkColors = {
@@ -63,6 +65,8 @@ export const darkColors = {
   // Overlay
   overlay:     'rgba(0,0,0,0.7)',
   overlayLight:'rgba(0,0,0,0.25)',
+  // Soft coral background (low ring stock)
+  coralBg:     '#3A1F2B',
 } as const;
 
 // Legacy alias — points to light; use useTheme() for theme-aware access
@@ -80,4 +84,5 @@ export type ThemeColors = {
   slate700: string; slate400: string; slate200: string; slate100: string;
   white: string;
   overlay: string; overlayLight: string;
+  coralBg: string;
 };

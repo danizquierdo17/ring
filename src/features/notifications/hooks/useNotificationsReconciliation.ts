@@ -3,7 +3,15 @@ import { useSQLiteContext } from "expo-sqlite";
 import type { SQLiteDatabase } from "expo-sqlite";
 
 import { getCurrentCycle } from "../../cycle/data/cyclesRepo";
-import { planNotifications } from "../domain/notificationPlanner";
+import { getSettings, type Settings } from "../../settings/data/settingsRepo";
+import { daysPerRing } from "../../stock/domain/stock";
+import translations from "../../../shared/i18n/translations";
+import {
+  BUY_REMINDER_ID_PREFIX,
+  planBuyReminders,
+  planNotifications,
+  type BuyReminderCopy,
+} from "../domain/notificationPlanner";
 import { scheduleAll, cancelByIds, getScheduledIds, initNotificationChannel } from "../infra/scheduler";
 
 // ---------------------------------------------------------------------------
@@ -12,6 +20,23 @@ import { scheduleAll, cancelByIds, getScheduledIds, initNotificationChannel } fr
 
 function getUtcOffsetMinutes(): number {
   return -new Date().getTimezoneOffset();
+}
+
+function utcOffsetAt(isoUtc: string): number {
+  return -new Date(isoUtc).getTimezoneOffset();
+}
+
+const MANAGED_ID_PREFIXES = ["removal-", "insertion-", BUY_REMINDER_ID_PREFIX];
+
+function buyReminderCopy(settings: Settings): BuyReminderCopy {
+  const t = translations[settings.language];
+  return {
+    title: t.notif_buy_title,
+    body: (count, buyByAt) => {
+      const date = new Date(buyByAt).toLocaleDateString(settings.language, { day: "numeric", month: "short" });
+      return count === 0 ? t.notif_buy_body_none(date) : t.notif_buy_body_some(count, date);
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -26,11 +51,32 @@ export async function reconcileNotifications(db: SQLiteDatabase): Promise<void> 
   const utcOffset = getUtcOffsetMinutes();
 
   const expected = cycle !== null ? planNotifications(cycle, utcOffset) : [];
+
+  const settingsResult = getSettings(db);
+  if (settingsResult.ok) {
+    const settings = settingsResult.value;
+    expected.push(
+      ...planBuyReminders(
+        cycle,
+        {
+          count: settings.stockCount,
+          threshold: settings.stockThreshold,
+          buyReminderHours: settings.buyReminderHours,
+          daysPerRing: daysPerRing(settings.regimen, settings.continuousDays),
+          configured: settings.stockConfiguredAt !== null,
+        },
+        new Date().toISOString(),
+        utcOffsetAt,
+        buyReminderCopy(settings),
+      ),
+    );
+  }
+
   const expectedIds = new Set(expected.map((n) => n.id));
 
   const scheduledIds = await getScheduledIds();
   const staleIds = scheduledIds
-    .filter((id) => id.startsWith("removal-") || id.startsWith("insertion-"))
+    .filter((id) => MANAGED_ID_PREFIXES.some((prefix) => id.startsWith(prefix)))
     .filter((id) => !expectedIds.has(id));
 
   if (staleIds.length > 0) {
