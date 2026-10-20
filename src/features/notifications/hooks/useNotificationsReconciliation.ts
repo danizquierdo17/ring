@@ -18,10 +18,6 @@ import { scheduleAll, cancelByIds, getScheduledIds, initNotificationChannel } fr
 // Utilities
 // ---------------------------------------------------------------------------
 
-function getUtcOffsetMinutes(): number {
-  return -new Date().getTimezoneOffset();
-}
-
 function utcOffsetAt(isoUtc: string): number {
   return -new Date(isoUtc).getTimezoneOffset();
 }
@@ -48,9 +44,8 @@ export async function reconcileNotifications(db: SQLiteDatabase): Promise<void> 
   if (!cycleResult.ok) return;
 
   const cycle = cycleResult.value;
-  const utcOffset = getUtcOffsetMinutes();
 
-  const expected = cycle !== null ? planNotifications(cycle, utcOffset) : [];
+  const expected = cycle !== null ? planNotifications(cycle, utcOffsetAt) : [];
 
   const settingsResult = getSettings(db);
   if (settingsResult.ok) {

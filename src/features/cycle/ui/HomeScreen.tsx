@@ -253,9 +253,9 @@ export function HomeScreen() {
 
   const upcomingNotifications = useMemo(() => {
     if (!currentCycle) return [];
-    const utcOffset = -new Date().getTimezoneOffset();
+    const utcOffsetAt = (isoUtc: string) => -new Date(isoUtc).getTimezoneOffset();
     const now = new Date();
-    return planNotifications(currentCycle, utcOffset)
+    return planNotifications(currentCycle, utcOffsetAt)
       .filter((n) => new Date(n.triggerAt) > now)
       .sort((a, b) => a.triggerAt.localeCompare(b.triggerAt));
   }, [currentCycle]);
