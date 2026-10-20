@@ -14,6 +14,10 @@ import { DateTimePickerModal } from '../../../shared/ui/DateTimePickerModal';
 import { useDateTimePicker } from '../../../shared/hooks/useDateTimePicker';
 import { useT } from '../../../shared/i18n/useT';
 import { planNotifications } from '../../notifications/domain/notificationPlanner';
+import { useStock } from '../../stock/hooks/useStock';
+import { StockPill } from '../../stock/ui/StockPill';
+import { LowStockBanner } from '../../stock/ui/LowStockBanner';
+import { StockSheet } from '../../stock/ui/StockSheet';
 import type { ThemeColors } from '../../../shared/theme/useTheme';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,6 +25,12 @@ const BellIcon = Bell as React.ComponentType<any>;
 
 const CYCLIC_TOTAL = 21;
 const FREE_TOTAL   = 7;
+
+// The ring shrinks when the area above the cards gets shorter (e.g. while the
+// low-stock notice is shown) so Inicio never needs to scroll.
+const RING_MAX_SIZE = 260;
+const RING_MIN_SIZE = 190; // below this the day counter no longer fits inside the ring
+const BADGE_ALLOWANCE = 44; // StatusBadge height + gap
 
 // ── StatusBadge ────────────────────────────────────────────────────────────
 
@@ -237,6 +247,9 @@ export function HomeScreen() {
   const t = useT();
   const c = useTheme();
   const [notifSheetVisible, setNotifSheetVisible] = useState(false);
+  const [stockSheetVisible, setStockSheetVisible] = useState(false);
+  const [ringSize, setRingSize] = useState(RING_MAX_SIZE);
+  const { stock, projection: stockProjection, project, saveStock } = useStock();
 
   const upcomingNotifications = useMemo(() => {
     if (!currentCycle) return [];
@@ -355,12 +368,21 @@ export function HomeScreen() {
     const nowDate = new Date();
     const timeStr = nowDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    // Insertion: tell how the ring stock changes (never blocks the insertion).
+    const isInsert = uiState !== 'RING_IN_USE';
+    const stockCount = stock?.count ?? 0;
+    const stockMessage = !isInsert
+      ? undefined
+      : stockCount > 0 ? t.stock_insert_note(stockCount - 1) : t.stock_insert_none;
+
     showActionSheetWithOptions(
       {
         options: [`${t.home_sheet_now} (${timeStr})`, t.home_sheet_choose, t.home_sheet_cancel],
         cancelButtonIndex: 2,
         destructiveButtonIndex: undefined,
         title: uiState === 'RING_IN_USE' ? t.home_sheet_title_remove : t.home_sheet_title_insert,
+        message: stockMessage,
+        messageTextStyle: isInsert && stockCount === 0 && stockProjection?.low ? { color: c.coralDark } : undefined,
         tintColor: c.indigo,
       },
       (buttonIndex) => {
@@ -387,22 +409,33 @@ export function HomeScreen() {
             <Text style={{ fontSize: 20, fontWeight: '800', color: c.text, letterSpacing: -0.5 }}>{t.home_title}</Text>
             <Text style={{ fontSize: 12, color: c.slate400, marginTop: 1 }}>{t.home_subtitle}</Text>
           </View>
-          <TouchableOpacity
-            style={{ backgroundColor: c.lavender, borderRadius: 19, width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }}
-            accessibilityRole="button"
-            accessibilityLabel={t.home_notifications_label}
-            onPress={() => setNotifSheetVisible(true)}
-          >
-            <BellIcon color={c.indigo} size={17} />
-            {upcomingNotifications.length > 0 && (
-              <View style={{ position: 'absolute', top: 7, right: 7, width: 7, height: 7, borderRadius: 4, backgroundColor: c.coral, borderWidth: 1.5, borderColor: c.surface }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              style={{ backgroundColor: c.lavender, borderRadius: 19, width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }}
+              accessibilityRole="button"
+              accessibilityLabel={t.home_notifications_label}
+              onPress={() => setNotifSheetVisible(true)}
+            >
+              <BellIcon color={c.indigo} size={17} />
+              {upcomingNotifications.length > 0 && (
+                <View style={{ position: 'absolute', top: 7, right: 7, width: 7, height: 7, borderRadius: 4, backgroundColor: c.coral, borderWidth: 1.5, borderColor: c.surface }} />
+              )}
+            </TouchableOpacity>
+            {stock !== null && (
+              <StockPill count={stock.count} low={stockProjection?.low ?? false} onPress={() => setStockSheetVisible(true)} />
             )}
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* Ring + Badge */}
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-          <CircularProgress day={day} total={total} uiState={uiState} size={260} />
+        <View
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}
+          onLayout={(e) => {
+            const available = e.nativeEvent.layout.height - BADGE_ALLOWANCE;
+            setRingSize(Math.round(Math.max(RING_MIN_SIZE, Math.min(RING_MAX_SIZE, available))));
+          }}
+        >
+          <CircularProgress day={day} total={total} uiState={uiState} size={ringSize} />
           <StatusBadge uiState={uiState} />
         </View>
 
@@ -416,6 +449,13 @@ export function HomeScreen() {
           <StepsIndicator uiState={uiState} />
         </View>
 
+        {/* Low ring stock notice */}
+        {stock !== null && stockProjection?.low && (
+          <View style={{ marginBottom: 12 }}>
+            <LowStockBanner count={stock.count} buyByAt={stockProjection.buyByAt} onBought={() => setStockSheetVisible(true)} />
+          </View>
+        )}
+
         {/* CTA Button */}
         <ActionButton uiState={uiState} onPress={handlePress} />
 
@@ -428,6 +468,17 @@ export function HomeScreen() {
         c={c}
         upcomingNotifications={upcomingNotifications}
       />
+
+      {/* Ring stock sheet */}
+      {stock !== null && (
+        <StockSheet
+          visible={stockSheetVisible}
+          initial={stock}
+          project={project}
+          onSave={saveStock}
+          onClose={() => setStockSheetVisible(false)}
+        />
+      )}
 
       {/* DateTime picker (iOS modal / Android dialog) */}
       <DateTimePickerModal

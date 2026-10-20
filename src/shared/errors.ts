@@ -7,7 +7,10 @@ export type AppErrorCode =
   | "PERMISSION_DENIED"
   | "INVALID_REGIMEN"
   | "INVALID_CONTINUOUS_DAYS"
-  | "INVALID_LOCALE";
+  | "INVALID_LOCALE"
+  | "INVALID_STOCK_COUNT"
+  | "INVALID_STOCK_THRESHOLD"
+  | "INVALID_BUY_REMINDER_HOURS";
 
 export type AppError = {
   readonly code: AppErrorCode;

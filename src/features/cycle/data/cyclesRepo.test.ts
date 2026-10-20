@@ -195,6 +195,38 @@ describe("insertCycle", () => {
     if (!isErr(result)) return;
     expect(result.error.code).toBe("DB_ERROR");
   });
+
+  it("ejecuta alsoInTransaction dentro de la transacción, tras los dos INSERT", () => {
+    const calls: string[] = [];
+    const db = createMockDb({
+      withTransactionSync: jest.fn().mockImplementation((cb: () => void) => {
+        calls.push("BEGIN");
+        cb();
+        calls.push("COMMIT");
+      }),
+      runSync: jest.fn().mockImplementation(() => {
+        calls.push("runSync");
+        return { changes: 1, lastInsertRowId: 0 };
+      }),
+    });
+
+    const result = insertCycle(db, insertInput, () => calls.push("extra"));
+
+    expect(isOk(result)).toBe(true);
+    expect(calls).toEqual(["BEGIN", "runSync", "runSync", "extra", "COMMIT"]);
+  });
+
+  it("devuelve Err(DB_ERROR) si alsoInTransaction lanza", () => {
+    const db = createMockDb();
+
+    const result = insertCycle(db, insertInput, () => {
+      throw new Error("disk full");
+    });
+
+    expect(isErr(result)).toBe(true);
+    if (!isErr(result)) return;
+    expect(result.error.code).toBe("DB_ERROR");
+  });
 });
 
 // ---------------------------------------------------------------------------

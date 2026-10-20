@@ -114,12 +114,15 @@ export function getCurrentCycle(
 // insertCycle
 // Atómica: crea el registro en Cycles y el evento RING_INSERTED en Events
 // dentro de una única transacción. Si falla cualquiera de las dos, se
-// revierten ambas.
+// revierten ambas. `alsoInTransaction` permite añadir escrituras de otra
+// feature (p. ej. descontar la reserva) a la misma transacción; si lanza,
+// se revierte todo.
 // ---------------------------------------------------------------------------
 
 export function insertCycle(
   db: SQLiteDatabase,
-  input: InsertCycleInput
+  input: InsertCycleInput,
+  alsoInTransaction?: (db: SQLiteDatabase) => void
 ): Result<Cycle, AppError> {
   const id = Crypto.randomUUID();
   const now = new Date().toISOString();
@@ -148,6 +151,8 @@ export function insertCycle(
         input.insertedAt,
         now
       );
+
+      alsoInTransaction?.(db);
     });
 
     const cycle: Cycle = {

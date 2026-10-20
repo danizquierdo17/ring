@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { planNotifications } from "./notificationPlanner";
+import { planNotifications, planBuyReminders, type BuyReminderStock } from "./notificationPlanner";
 import type { Cycle } from "../../cycle/domain/cycleStateMachine";
 
 // ---------------------------------------------------------------------------
@@ -203,5 +203,143 @@ describe("notificationPlanner — triggerAt en el pasado", () => {
     const notifs = planNotifications(pastCycle, 0);
     // El planner devuelve todas; el scheduler filtra las del pasado
     expect(notifs).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// planBuyReminders
+// ---------------------------------------------------------------------------
+
+describe("planBuyReminders", () => {
+  const OFFSET = () => 60; // UTC+1 fijo (Madrid, invierno)
+  const copy = {
+    title: "Lua Ring",
+    body: (count: number, buyByAt: string) => `${count}|${buyByAt}`,
+  };
+
+  // Retirado el 5 nov a las 20:00Z → próxima inserción 12 nov 20:00Z (21:00 local)
+  const ringFree = makeCycle({
+    id: "c-free",
+    insertedAt: "2026-10-15T20:00:00.000Z",
+    plannedRemovalAt: "2026-11-05T20:00:00.000Z",
+    removedAt: "2026-11-05T20:00:00.000Z",
+    status: "COMPLETED",
+  });
+
+  function stock(overrides: Partial<BuyReminderStock> = {}): BuyReminderStock {
+    return { count: 1, threshold: 1, buyReminderHours: [24], daysPerRing: 28, configured: true, ...overrides };
+  }
+
+  const NOW = "2026-11-08T12:00:00.000Z";
+
+  it("con una antelación, avisa 24 h antes de las 10:00 locales del día límite", () => {
+    const notifs = planBuyReminders(ringFree, stock(), NOW, OFFSET, copy);
+
+    expect(notifs).toEqual([
+      {
+        id: "buy-rings-24h",
+        triggerAt: "2026-11-11T09:00:00.000Z",
+        title: "Lua Ring",
+        body: "1|2026-11-12T09:00:00.000Z",
+      },
+    ]);
+  });
+
+  it("con dos antelaciones, programa un aviso por cada una", () => {
+    const notifs = planBuyReminders(ringFree, stock({ buyReminderHours: [48, 24] }), NOW, OFFSET, copy);
+
+    expect(notifs.map((n) => [n.id, n.triggerAt])).toEqual([
+      ["buy-rings-48h", "2026-11-10T09:00:00.000Z"],
+      ["buy-rings-24h", "2026-11-11T09:00:00.000Z"],
+    ]);
+  });
+
+  it("con tres antelaciones, programa los tres avisos", () => {
+    const notifs = planBuyReminders(ringFree, stock({ buyReminderHours: [72, 48, 24] }), NOW, OFFSET, copy);
+
+    expect(notifs.map((n) => n.id)).toEqual(["buy-rings-72h", "buy-rings-48h", "buy-rings-24h"]);
+    expect(notifs[0]?.triggerAt).toBe("2026-11-09T09:00:00.000Z");
+  });
+
+  it("omite los avisos cuya hora ya ha pasado", () => {
+    const now = "2026-11-10T12:00:00.000Z";
+    const notifs = planBuyReminders(ringFree, stock({ buyReminderHours: [72, 48, 24] }), now, OFFSET, copy);
+
+    expect(notifs.map((n) => n.id)).toEqual(["buy-rings-24h"]);
+  });
+
+  it("no programa nada si la reserva no está baja", () => {
+    const notifs = planBuyReminders(ringFree, stock({ count: 2, threshold: 1, buyReminderHours: [72, 48, 24] }), NOW, OFFSET, copy);
+
+    expect(notifs).toEqual([]);
+  });
+
+  it("no programa nada si la reserva nunca se ha guardado", () => {
+    const notifs = planBuyReminders(ringFree, stock({ count: 0, configured: false }), NOW, OFFSET, copy);
+
+    expect(notifs).toEqual([]);
+  });
+
+  it("con reserva 0, la fecha límite es la próxima inserción", () => {
+    // Anillo puesto: retirada prevista 10 nov 20:00Z → inserción 17 nov 20:00Z
+    const inUse = makeCycle({
+      id: "c-use",
+      insertedAt: "2026-10-20T20:00:00.000Z",
+      plannedRemovalAt: "2026-11-10T20:00:00.000Z",
+    });
+
+    const notifs = planBuyReminders(inUse, stock({ count: 0, threshold: 0 }), NOW, OFFSET, copy);
+
+    expect(notifs).toEqual([
+      {
+        id: "buy-rings-24h",
+        triggerAt: "2026-11-16T09:00:00.000Z",
+        title: "Lua Ring",
+        body: "0|2026-11-17T09:00:00.000Z",
+      },
+    ]);
+  });
+
+  it("mantiene las 10:00 locales aunque haya cambio de hora entre medias", () => {
+    // Madrid: UTC+2 hasta el 25 oct 2026 a las 01:00Z, UTC+1 después.
+    const madrid = (iso: string) => (iso < "2026-10-25T01:00:00.000Z" ? 120 : 60);
+    // Retirado el 19 oct → inserción 26 oct 20:00Z (21:00 local, ya en horario de invierno)
+    const freeAcrossDst = makeCycle({
+      id: "c-dst",
+      insertedAt: "2026-09-28T20:00:00.000Z",
+      plannedRemovalAt: "2026-10-19T20:00:00.000Z",
+      removedAt: "2026-10-19T20:00:00.000Z",
+      status: "COMPLETED",
+    });
+
+    const notifs = planBuyReminders(
+      freeAcrossDst,
+      stock({ buyReminderHours: [72, 48, 24] }),
+      "2026-10-20T12:00:00.000Z",
+      madrid,
+      copy,
+    );
+
+    expect(notifs.map((n) => n.triggerAt)).toEqual([
+      "2026-10-23T08:00:00.000Z", // 10:00 CEST
+      "2026-10-24T08:00:00.000Z", // 10:00 CEST
+      "2026-10-25T09:00:00.000Z", // 10:00 CET
+    ]);
+    expect(notifs[0]?.body).toBe("1|2026-10-26T09:00:00.000Z");
+  });
+
+  it("usa el día local de la fecha límite, no el día UTC", () => {
+    // Retirada 5 nov 23:30Z = 6 nov 00:30 local → inserción 13 nov local
+    const lateNight = makeCycle({
+      id: "c-night",
+      insertedAt: "2026-10-15T23:30:00.000Z",
+      plannedRemovalAt: "2026-11-05T23:30:00.000Z",
+      removedAt: "2026-11-05T23:30:00.000Z",
+      status: "COMPLETED",
+    });
+
+    const notifs = planBuyReminders(lateNight, stock(), NOW, OFFSET, copy);
+
+    expect(notifs[0]?.triggerAt).toBe("2026-11-12T09:00:00.000Z");
   });
 });

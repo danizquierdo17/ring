@@ -9,7 +9,8 @@ import type { Result } from "../../../shared/result";
 import type { AppError } from "../../../shared/errors";
 import type { Cycle, Regimen } from "../domain/cycleStateMachine";
 import { reconcileNotifications } from "../../notifications/hooks/useNotificationsReconciliation";
-import { getSettings } from "../../settings/data/settingsRepo";
+import { consumeStockRing, getSettings } from "../../settings/data/settingsRepo";
+import { useSettingsStore } from "../../settings/hooks/useSettingsStore";
 
 export function useCurrentCycle() {
   const db = useSQLiteContext();
@@ -31,7 +32,8 @@ export function useCurrentCycle() {
 
   /**
    * Inserta un nuevo anillo con el timestamp elegido por la usuaria.
-   * Lee el régimen y días configurados en Settings.
+   * Lee el régimen y días configurados en Settings y descuenta un anillo de
+   * la reserva en la misma transacción.
    */
   const insertRingAction = useCallback((chosenAt?: string): Result<Cycle, AppError> => {
     const now = chosenAt ?? new Date().toISOString();
@@ -52,10 +54,12 @@ export function useCurrentCycle() {
       insertedAt: domainResult.value.insertedAt,
       plannedRemovalAt: domainResult.value.plannedRemovalAt,
       notes: domainResult.value.notes,
-    });
+    }, consumeStockRing);
 
     if (isOk(repoResult)) {
       _setCycle(repoResult.value, new Date().toISOString());
+      const updatedSettings = getSettings(db);
+      if (isOk(updatedSettings)) useSettingsStore.getState()._setSettings(updatedSettings.value);
       void reconcileNotifications(db);
     }
 

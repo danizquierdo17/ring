@@ -83,6 +83,21 @@ export type TranslationMap = {
   backup_error_no_settings: string; backup_error_no_share: string; backup_error_invalid: string;
   notif_remove_title: string; notif_remove_body: string;
   notif_insert_title: string; notif_insert_body: string;
+  notif_buy_title: string;
+  notif_buy_body_none: (date: string) => string;
+  notif_buy_body_some: (n: number, date: string) => string;
+  stock_pill_label: (n: number) => string; stock_open_hint: string;
+  stock_banner_title: (n: number) => string; stock_banner_buy_by: (date: string) => string;
+  stock_banner_bought: string;
+  stock_sheet_title: string; stock_sheet_subtitle: string; stock_sheet_unit: (n: number) => string;
+  stock_sheet_decrease: string; stock_sheet_increase: string;
+  stock_sheet_add_box: string; stock_sheet_add_pack: string;
+  stock_sheet_until: string; stock_sheet_threshold: string; stock_sheet_threshold_a11y: (n: number) => string;
+  stock_sheet_reminders: string; stock_sheet_hours_option: (hours: number) => string;
+  stock_sheet_save: string; stock_sheet_cancel: string;
+  stock_insert_note: (remaining: number) => string; stock_insert_none: string;
+  settings_section_stock: string; stock_row_title: (n: number) => string;
+  stock_row_subtitle: (threshold: number, hours: string) => string;
   tag_energy_high: string; tag_energy_low: string; tag_pain: string; tag_cramps: string;
   tag_joy: string; tag_sadness: string; tag_irritable: string; tag_calm: string;
   tag_libido_high: string; tag_libido_low: string;
@@ -282,6 +297,36 @@ const translations: Record<Locale, TranslationMap> = {
     notif_remove_body: 'Han pasado 21 días. Retíralo hoy.',
     notif_insert_title: 'Hora de insertar el anillo',
     notif_insert_body: 'El período libre ha terminado. Inserta el nuevo anillo.',
+    // ── Reserva de anillos ────────────────────────────────────────────────
+    notif_buy_title: 'Lua Ring',
+    notif_buy_body_none: (date: string) => `No te quedan anillos — compra antes del ${date}`,
+    notif_buy_body_some: (n: number, date: string) =>
+      n === 1 ? `Te queda 1 anillo — compra antes del ${date}` : `Te quedan ${n} anillos — compra antes del ${date}`,
+    stock_pill_label: (n: number) => `${n} en casa`,
+    stock_open_hint: 'Abre la reserva de anillos',
+    stock_banner_title: (n: number) =>
+      n === 0 ? 'No te quedan anillos' : n === 1 ? 'Te queda 1 anillo' : `Te quedan ${n} anillos`,
+    stock_banner_buy_by: (date: string) => `Compra antes del ${date}`,
+    stock_banner_bought: 'Ya compré',
+    stock_sheet_title: 'Anillos en casa',
+    stock_sheet_subtitle: 'Se descuenta uno cada vez que registras una inserción.',
+    stock_sheet_unit: (n: number) => (n === 1 ? 'anillo' : 'anillos'),
+    stock_sheet_decrease: 'Quitar un anillo',
+    stock_sheet_increase: 'Añadir un anillo',
+    stock_sheet_add_box: '+1 caja',
+    stock_sheet_add_pack: '+3 (pack 3)',
+    stock_sheet_until: 'Tienes anillos hasta el',
+    stock_sheet_threshold: 'Avisarme cuando queden',
+    stock_sheet_threshold_a11y: (n: number) => `Avisar cuando queden ${n}`,
+    stock_sheet_reminders: 'Recordarme comprar · elige uno o varios',
+    stock_sheet_hours_option: (hours: number) => `${hours} h antes`,
+    stock_sheet_save: 'Guardar',
+    stock_sheet_cancel: 'Cancelar',
+    stock_insert_note: (remaining: number) => `Se descontará 1 de tu reserva · quedarán ${remaining}`,
+    stock_insert_none: 'No tienes anillos registrados en casa',
+    settings_section_stock: 'Reserva de anillos',
+    stock_row_title: (n: number) => (n === 1 ? '1 anillo en casa' : `${n} anillos en casa`),
+    stock_row_subtitle: (threshold: number, hours: string) => `Aviso al quedar ${threshold} · ${hours}h antes`,
 
     // ── Tags ──────────────────────────────────────────────────────────────
     tag_energy_high: 'Alta energía',
@@ -485,6 +530,36 @@ const translations: Record<Locale, TranslationMap> = {
     notif_remove_body: 'Pasaron 21 días. Retíralo hoy.',
     notif_insert_title: 'Hora de insertar el anillo',
     notif_insert_body: 'El período libre terminó. Insertá el nuevo anillo.',
+    // ── Reserva de anillos ────────────────────────────────────────────────
+    notif_buy_title: 'Lua Ring',
+    notif_buy_body_none: (date: string) => `No te quedan anillos — comprá antes del ${date}`,
+    notif_buy_body_some: (n: number, date: string) =>
+      n === 1 ? `Te queda 1 anillo — comprá antes del ${date}` : `Te quedan ${n} anillos — comprá antes del ${date}`,
+    stock_pill_label: (n: number) => `${n} en casa`,
+    stock_open_hint: 'Abre la reserva de anillos',
+    stock_banner_title: (n: number) =>
+      n === 0 ? 'No te quedan anillos' : n === 1 ? 'Te queda 1 anillo' : `Te quedan ${n} anillos`,
+    stock_banner_buy_by: (date: string) => `Comprá antes del ${date}`,
+    stock_banner_bought: 'Ya compré',
+    stock_sheet_title: 'Anillos en casa',
+    stock_sheet_subtitle: 'Se descuenta uno cada vez que registrás una inserción.',
+    stock_sheet_unit: (n: number) => (n === 1 ? 'anillo' : 'anillos'),
+    stock_sheet_decrease: 'Quitar un anillo',
+    stock_sheet_increase: 'Agregar un anillo',
+    stock_sheet_add_box: '+1 caja',
+    stock_sheet_add_pack: '+3 (pack de 3)',
+    stock_sheet_until: 'Tenés anillos hasta el',
+    stock_sheet_threshold: 'Avisarme cuando queden',
+    stock_sheet_threshold_a11y: (n: number) => `Avisar cuando queden ${n}`,
+    stock_sheet_reminders: 'Recordarme comprar · elegí uno o varios',
+    stock_sheet_hours_option: (hours: number) => `${hours} h antes`,
+    stock_sheet_save: 'Guardar',
+    stock_sheet_cancel: 'Cancelar',
+    stock_insert_note: (remaining: number) => `Se descontará 1 de tu reserva · quedarán ${remaining}`,
+    stock_insert_none: 'No tenés anillos registrados en casa',
+    settings_section_stock: 'Reserva de anillos',
+    stock_row_title: (n: number) => (n === 1 ? '1 anillo en casa' : `${n} anillos en casa`),
+    stock_row_subtitle: (threshold: number, hours: string) => `Aviso al quedar ${threshold} · ${hours}h antes`,
 
     tag_energy_high: 'Alta energía',
     tag_energy_low: 'Poca energía',
@@ -687,6 +762,36 @@ const translations: Record<Locale, TranslationMap> = {
     notif_remove_body: '21 days have passed. Remove it today.',
     notif_insert_title: 'Time to insert your ring',
     notif_insert_body: 'Your ring-free period is over. Insert a new ring.',
+    // ── Rings at home ─────────────────────────────────────────────────────
+    notif_buy_title: 'Lua Ring',
+    notif_buy_body_none: (date: string) => `No rings left at home — buy before ${date}`,
+    notif_buy_body_some: (n: number, date: string) =>
+      n === 1 ? `1 ring left — buy before ${date}` : `${n} rings left — buy before ${date}`,
+    stock_pill_label: (n: number) => `${n} at home`,
+    stock_open_hint: 'Opens your rings at home',
+    stock_banner_title: (n: number) =>
+      n === 0 ? 'No rings left at home' : n === 1 ? '1 ring left' : `${n} rings left`,
+    stock_banner_buy_by: (date: string) => `Buy before ${date}`,
+    stock_banner_bought: 'I bought more',
+    stock_sheet_title: 'Rings at home',
+    stock_sheet_subtitle: 'One is subtracted each time you log an insertion.',
+    stock_sheet_unit: (n: number) => (n === 1 ? 'ring' : 'rings'),
+    stock_sheet_decrease: 'Remove one ring',
+    stock_sheet_increase: 'Add one ring',
+    stock_sheet_add_box: '+1 box',
+    stock_sheet_add_pack: '+3 (3-pack)',
+    stock_sheet_until: 'Your rings last until',
+    stock_sheet_threshold: 'Alert me when this many are left',
+    stock_sheet_threshold_a11y: (n: number) => `Alert when ${n} left`,
+    stock_sheet_reminders: 'Remind me to buy · pick one or more',
+    stock_sheet_hours_option: (hours: number) => `${hours} h before`,
+    stock_sheet_save: 'Save',
+    stock_sheet_cancel: 'Cancel',
+    stock_insert_note: (remaining: number) => `1 will be taken from your rings at home · ${remaining} left`,
+    stock_insert_none: 'You have no rings logged at home',
+    settings_section_stock: 'Rings at home',
+    stock_row_title: (n: number) => (n === 1 ? '1 ring at home' : `${n} rings at home`),
+    stock_row_subtitle: (threshold: number, hours: string) => `Alert at ${threshold} left · ${hours}h before`,
 
     tag_energy_high: 'High energy',
     tag_energy_low: 'Low energy',
