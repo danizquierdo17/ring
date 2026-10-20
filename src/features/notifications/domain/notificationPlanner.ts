@@ -13,6 +13,9 @@ export type ScheduledNotification = {
   readonly body: string;
 };
 
+/** Device UTC offset in minutes in force at a given instant (differs across DST changes). */
+export type UtcOffsetAt = (isoUtc: string) => number;
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -23,21 +26,18 @@ const PRE_EVENT_HOURS        = 1;  // 1h before the planned time
 const FOLLOW_UP_1H           = 1;  // 1h after, if not yet done
 const FOLLOW_UP_3H           = 3;  // 3h after, if not yet done
 
-function atLocalHourOnUtcDate(
-  isoUtc: string,
-  utcOffsetMinutes: number,
-  hour: number,
-  minute = 0,
-): string {
-  const d = new Date(isoUtc);
-  const y = d.getUTCFullYear();
-  const m = d.getUTCMonth();
-  const day = d.getUTCDate();
+type LocalDate = { readonly y: number; readonly m: number; readonly d: number };
 
-  const utcOfLocalTime =
-    Date.UTC(y, m, day, hour, minute, 0) - utcOffsetMinutes * 60_000;
+function localDateOf(isoUtc: string, offsetAt: UtcOffsetAt): LocalDate {
+  const local = new Date(new Date(isoUtc).getTime() + offsetAt(isoUtc) * 60_000);
+  return { y: local.getUTCFullYear(), m: local.getUTCMonth(), d: local.getUTCDate() };
+}
 
-  return new Date(utcOfLocalTime).toISOString();
+/** `hour`:00 local on the calendar day `daysOffset` days from `date`, using the offset in force then. */
+function atLocalHour(date: LocalDate, daysOffset: number, hour: number, offsetAt: UtcOffsetAt): string {
+  const wallClock = Date.UTC(date.y, date.m, date.d + daysOffset, hour);
+  const approx = wallClock - offsetAt(new Date(wallClock).toISOString()) * 60_000;
+  return new Date(wallClock - offsetAt(new Date(approx).toISOString()) * 60_000).toISOString();
 }
 
 function addDaysUtc(isoUtc: string, days: number): string {
@@ -56,11 +56,12 @@ function isBefore(aIso: string, bIso: string): boolean {
 
 function buildRemovalNotifications(
   cycle: Cycle,
-  utcOffsetMinutes: number,
+  offsetAt: UtcOffsetAt,
 ): ScheduledNotification[] {
-  const targetAt   = cycle.plannedRemovalAt;
-  const dayBeforeAt = atLocalHourOnUtcDate(addDaysUtc(targetAt, -1), utcOffsetMinutes, DAY_BEFORE_NOTIFY_HOUR);
-  const sameDayAt   = atLocalHourOnUtcDate(targetAt, utcOffsetMinutes, SAME_DAY_NOTIFY_HOUR);
+  const targetAt    = cycle.plannedRemovalAt;
+  const targetDate  = localDateOf(targetAt, offsetAt);
+  const dayBeforeAt = atLocalHour(targetDate, -1, DAY_BEFORE_NOTIFY_HOUR, offsetAt);
+  const sameDayAt   = atLocalHour(targetDate, 0, SAME_DAY_NOTIFY_HOUR, offsetAt);
   const preAt       = addHoursUtc(targetAt, -PRE_EVENT_HOURS);
   const followUp1At = addHoursUtc(targetAt, FOLLOW_UP_1H);
   const followUp3At = addHoursUtc(targetAt, FOLLOW_UP_3H);
@@ -114,11 +115,12 @@ function buildRemovalNotifications(
 
 function buildInsertionNotifications(
   cycle: Cycle,
-  utcOffsetMinutes: number,
+  offsetAt: UtcOffsetAt,
 ): ScheduledNotification[] {
   const targetAt    = addDaysUtc(cycle.removedAt!, CYCLIC_FREE_DAYS);
-  const dayBeforeAt = atLocalHourOnUtcDate(addDaysUtc(targetAt, -1), utcOffsetMinutes, DAY_BEFORE_NOTIFY_HOUR);
-  const sameDayAt   = atLocalHourOnUtcDate(targetAt, utcOffsetMinutes, SAME_DAY_NOTIFY_HOUR);
+  const targetDate  = localDateOf(targetAt, offsetAt);
+  const dayBeforeAt = atLocalHour(targetDate, -1, DAY_BEFORE_NOTIFY_HOUR, offsetAt);
+  const sameDayAt   = atLocalHour(targetDate, 0, SAME_DAY_NOTIFY_HOUR, offsetAt);
   const preAt       = addHoursUtc(targetAt, -PRE_EVENT_HOURS);
   const followUp1At = addHoursUtc(targetAt, FOLLOW_UP_1H);
   const followUp3At = addHoursUtc(targetAt, FOLLOW_UP_3H);
@@ -177,17 +179,22 @@ function buildInsertionNotifications(
 /**
  * Pure function — no expo-*, no React, no side effects.
  *
- * Given a Cycle and the device's UTC offset in minutes, returns the list of
- * ScheduledNotifications that should be active for that cycle.
+ * Given a Cycle and the device's UTC offset at any instant, returns the list
+ * of ScheduledNotifications that should be active for that cycle.
+ *
+ * The 12:00 / 09:00 reminders fall on the local calendar day before / of the
+ * planned time, using the offset in force on that day, so a DST change in
+ * between never moves them to 11:00 / 08:00. The others are fixed offsets
+ * from the planned time.
  *
  * IDs are deterministic so the reconciler can diff without querying the OS.
  */
 export function planNotifications(
   cycle: Cycle,
-  utcOffsetMinutes: number,
+  offsetAt: UtcOffsetAt,
 ): ScheduledNotification[] {
   if (cycle.status === "ACTIVE") {
-    return buildRemovalNotifications(cycle, utcOffsetMinutes);
+    return buildRemovalNotifications(cycle, offsetAt);
   }
 
   if (
@@ -195,7 +202,7 @@ export function planNotifications(
     cycle.regimen === "CYCLIC_21_7" &&
     cycle.removedAt !== null
   ) {
-    return buildInsertionNotifications(cycle, utcOffsetMinutes);
+    return buildInsertionNotifications(cycle, offsetAt);
   }
 
   return [];
@@ -218,23 +225,6 @@ export type BuyReminderCopy = {
   readonly title: string;
   readonly body: (count: number, buyByAt: string) => string;
 };
-
-/** Device UTC offset in minutes in force at a given instant (differs across DST changes). */
-export type UtcOffsetAt = (isoUtc: string) => number;
-
-type LocalDate = { readonly y: number; readonly m: number; readonly d: number };
-
-function localDateOf(isoUtc: string, offsetAt: UtcOffsetAt): LocalDate {
-  const local = new Date(new Date(isoUtc).getTime() + offsetAt(isoUtc) * 60_000);
-  return { y: local.getUTCFullYear(), m: local.getUTCMonth(), d: local.getUTCDate() };
-}
-
-/** `hour`:00 local on the calendar day `daysOffset` days from `date`, using the offset in force then. */
-function atLocalHour(date: LocalDate, daysOffset: number, hour: number, offsetAt: UtcOffsetAt): string {
-  const wallClock = Date.UTC(date.y, date.m, date.d + daysOffset, hour);
-  const approx = wallClock - offsetAt(new Date(wallClock).toISOString()) * 60_000;
-  return new Date(wallClock - offsetAt(new Date(approx).toISOString()) * 60_000).toISOString();
-}
 
 /**
  * Pure function. When the stock has been configured and is low, returns one

@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { planNotifications, planBuyReminders, type BuyReminderStock } from "./notificationPlanner";
+import { planNotifications, planBuyReminders, type BuyReminderStock, type UtcOffsetAt } from "./notificationPlanner";
 import type { Cycle } from "../../cycle/domain/cycleStateMachine";
 
 // ---------------------------------------------------------------------------
@@ -25,21 +25,37 @@ function makeCycle(overrides: Partial<Cycle> & {
   };
 }
 
+/** Desfase fijo, sin cambios de hora. */
+const fixedOffset = (minutes: number): UtcOffsetAt => () => minutes;
+
+/**
+ * Europe/Madrid: UTC+2 hasta el 25 oct 2026 a las 01:00Z (03:00 → 02:00),
+ * UTC+1 hasta el 28 mar 2027 a las 01:00Z (02:00 → 03:00), UTC+2 después.
+ */
+const MADRID: UtcOffsetAt = (isoUtc) => {
+  const t = Date.parse(isoUtc);
+  return t >= Date.parse("2026-10-25T01:00:00.000Z") && t < Date.parse("2027-03-28T01:00:00.000Z")
+    ? 60
+    : 120;
+};
+
+function triggersById(notifs: { id: string; triggerAt: string }[]): Record<string, string> {
+  return Object.fromEntries(notifs.map((n) => [n.id, n.triggerAt]));
+}
+
 // ---------------------------------------------------------------------------
 // Fixtures
-//
-// All dates UTC+0 so triggerAt arithmetic is exact in tests.
 // ---------------------------------------------------------------------------
 
-// Cycle inserted 2025-01-01, plannedRemovalAt 2025-01-22 00:00 UTC
+// Retirada prevista el 22 ene 2025 a las 20:00Z
 const ACTIVE_CYCLE = makeCycle({
   id: "cycle-abc",
-  insertedAt: "2025-01-01T10:00:00.000Z",
-  plannedRemovalAt: "2025-01-22T00:00:00.000Z",
+  insertedAt: "2025-01-01T20:00:00.000Z",
+  plannedRemovalAt: "2025-01-22T20:00:00.000Z",
   status: "ACTIVE",
 });
 
-// Completed CYCLIC_21_7: removed 2025-01-21, free window ends 2025-01-28
+// Retirado el 21 ene 2025 a las 18:00Z → inserción prevista el 28 ene a las 18:00Z
 const COMPLETED_CYCLIC = makeCycle({
   id: "cycle-def",
   insertedAt: "2025-01-01T10:00:00.000Z",
@@ -65,22 +81,19 @@ const COMPLETED_CONTINUOUS = makeCycle({
 
 describe("notificationPlanner — IDs deterministas", () => {
   it("genera IDs con el prefijo y cycleId correctos (removal)", () => {
-    const notifs = planNotifications(ACTIVE_CYCLE, 0);
-    const ids = notifs.map((n) => n.id);
-    expect(ids).toContain(`removal-cycle-abc-24h`);
-    expect(ids).toContain(`removal-cycle-abc-0h`);
+    const ids = planNotifications(ACTIVE_CYCLE, fixedOffset(0)).map((n) => n.id);
+    expect(ids).toContain("removal-cycle-abc-day-before");
+    expect(ids).toContain("removal-cycle-abc-due");
   });
 
   it("genera IDs de insertion para COMPLETED CYCLIC_21_7", () => {
-    const notifs = planNotifications(COMPLETED_CYCLIC, 0);
-    const ids = notifs.map((n) => n.id);
-    expect(ids).toContain(`insertion-cycle-def-24h`);
-    expect(ids).toContain(`insertion-cycle-def-0h`);
+    const ids = planNotifications(COMPLETED_CYCLIC, fixedOffset(0)).map((n) => n.id);
+    expect(ids).toContain("insertion-cycle-def-day-before");
+    expect(ids).toContain("insertion-cycle-def-due");
   });
 
   it("no duplica IDs — todos son únicos", () => {
-    const notifs = planNotifications(ACTIVE_CYCLE, 0);
-    const ids = notifs.map((n) => n.id);
+    const ids = planNotifications(ACTIVE_CYCLE, fixedOffset(0)).map((n) => n.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
@@ -90,48 +103,42 @@ describe("notificationPlanner — IDs deterministas", () => {
 // ---------------------------------------------------------------------------
 
 describe("notificationPlanner — ciclo ACTIVE", () => {
-  // UTC+0: plannedRemovalAt = 2025-01-22T00:00Z → day = Jan 22
-  // T-24h at 09:00 local (UTC+0) = 2025-01-21T09:00:00.000Z
-  // T-0h  at 09:00 local (UTC+0) = 2025-01-22T09:00:00.000Z
-
-  it("planifica aviso T-24h el día antes de plannedRemovalAt a las 09:00 local", () => {
-    const notifs = planNotifications(ACTIVE_CYCLE, 0);
-    const n = notifs.find((x) => x.id === "removal-cycle-abc-24h");
-    expect(n).toBeDefined();
-    expect(n!.triggerAt).toBe("2025-01-21T09:00:00.000Z");
-  });
-
-  it("planifica aviso T-0h en el día de plannedRemovalAt a las 09:00 local", () => {
-    const notifs = planNotifications(ACTIVE_CYCLE, 0);
-    const n = notifs.find((x) => x.id === "removal-cycle-abc-0h");
-    expect(n).toBeDefined();
-    expect(n!.triggerAt).toBe("2025-01-22T09:00:00.000Z");
-  });
-
-  it("devuelve exactamente 2 notificaciones para ciclo ACTIVE", () => {
-    const notifs = planNotifications(ACTIVE_CYCLE, 0);
-    expect(notifs).toHaveLength(2);
+  it("con UTC+0 avisa a las 12:00 del día antes, a las 09:00 del día y en torno a la hora prevista", () => {
+    expect(triggersById(planNotifications(ACTIVE_CYCLE, fixedOffset(0)))).toEqual({
+      "removal-cycle-abc-day-before": "2025-01-21T12:00:00.000Z",
+      "removal-cycle-abc-same-day-morning": "2025-01-22T09:00:00.000Z",
+      "removal-cycle-abc-pre": "2025-01-22T19:00:00.000Z",
+      "removal-cycle-abc-due": "2025-01-22T20:00:00.000Z",
+      "removal-cycle-abc-follow-up-1h": "2025-01-22T21:00:00.000Z",
+      "removal-cycle-abc-follow-up-3h": "2025-01-22T23:00:00.000Z",
+    });
   });
 
   it("aplica correctamente el offset UTC+60 (UTC+1)", () => {
-    // 09:00 UTC+1 = 08:00 UTC
-    const notifs = planNotifications(ACTIVE_CYCLE, 60);
-    const n24 = notifs.find((x) => x.id === "removal-cycle-abc-24h");
-    expect(n24!.triggerAt).toBe("2025-01-21T08:00:00.000Z");
-    const n0 = notifs.find((x) => x.id === "removal-cycle-abc-0h");
-    expect(n0!.triggerAt).toBe("2025-01-22T08:00:00.000Z");
+    const t = triggersById(planNotifications(ACTIVE_CYCLE, fixedOffset(60)));
+    expect(t["removal-cycle-abc-day-before"]).toBe("2025-01-21T11:00:00.000Z");
+    expect(t["removal-cycle-abc-same-day-morning"]).toBe("2025-01-22T08:00:00.000Z");
   });
 
   it("aplica correctamente el offset UTC-300 (UTC-5)", () => {
-    // 09:00 UTC-5 = 14:00 UTC
-    const notifs = planNotifications(ACTIVE_CYCLE, -300);
-    const n0 = notifs.find((x) => x.id === "removal-cycle-abc-0h");
-    expect(n0!.triggerAt).toBe("2025-01-22T14:00:00.000Z");
+    const t = triggersById(planNotifications(ACTIVE_CYCLE, fixedOffset(-300)));
+    expect(t["removal-cycle-abc-day-before"]).toBe("2025-01-21T17:00:00.000Z");
+    expect(t["removal-cycle-abc-same-day-morning"]).toBe("2025-01-22T14:00:00.000Z");
+  });
+
+  it("omite el aviso de las 09:00 si la hora prevista es anterior", () => {
+    const early = makeCycle({
+      id: "cycle-early",
+      insertedAt: "2025-01-01T07:00:00.000Z",
+      plannedRemovalAt: "2025-01-22T07:00:00.000Z",
+    });
+    const ids = planNotifications(early, fixedOffset(0)).map((n) => n.id);
+    expect(ids).not.toContain("removal-cycle-early-same-day-morning");
+    expect(ids).toHaveLength(5);
   });
 
   it("título y body están presentes y no están vacíos", () => {
-    const notifs = planNotifications(ACTIVE_CYCLE, 0);
-    for (const n of notifs) {
+    for (const n of planNotifications(ACTIVE_CYCLE, fixedOffset(0))) {
       expect(n.title.length).toBeGreaterThan(0);
       expect(n.body.length).toBeGreaterThan(0);
     }
@@ -143,37 +150,21 @@ describe("notificationPlanner — ciclo ACTIVE", () => {
 // ---------------------------------------------------------------------------
 
 describe("notificationPlanner — COMPLETED CYCLIC_21_7", () => {
-  // removedAt = 2025-01-21T18:00:00.000Z
-  // plannedInsertionAt = Jan 21 UTC midnight + 7 days = Jan 28
-  // T-24h (insertion-24h) = Jan 27 at 09:00 UTC+0 = 2025-01-27T09:00:00.000Z
-  // T-0h  (insertion-0h)  = Jan 28 at 09:00 UTC+0 = 2025-01-28T09:00:00.000Z
-
-  it("planifica aviso de reinserción T-24h (día antes de la inserción)", () => {
-    const notifs = planNotifications(COMPLETED_CYCLIC, 0);
-    const n = notifs.find((x) => x.id === "insertion-cycle-def-24h");
-    expect(n).toBeDefined();
-    expect(n!.triggerAt).toBe("2025-01-27T09:00:00.000Z");
-  });
-
-  it("planifica aviso de reinserción T-0h (día de la inserción)", () => {
-    const notifs = planNotifications(COMPLETED_CYCLIC, 0);
-    const n = notifs.find((x) => x.id === "insertion-cycle-def-0h");
-    expect(n).toBeDefined();
-    expect(n!.triggerAt).toBe("2025-01-28T09:00:00.000Z");
-  });
-
-  it("devuelve exactamente 2 notificaciones para COMPLETED CYCLIC_21_7", () => {
-    const notifs = planNotifications(COMPLETED_CYCLIC, 0);
-    expect(notifs).toHaveLength(2);
+  it("con UTC+0 avisa a las 12:00 del día antes, a las 09:00 del día y en torno a la inserción prevista", () => {
+    expect(triggersById(planNotifications(COMPLETED_CYCLIC, fixedOffset(0)))).toEqual({
+      "insertion-cycle-def-day-before": "2025-01-27T12:00:00.000Z",
+      "insertion-cycle-def-same-day-morning": "2025-01-28T09:00:00.000Z",
+      "insertion-cycle-def-pre": "2025-01-28T17:00:00.000Z",
+      "insertion-cycle-def-due": "2025-01-28T18:00:00.000Z",
+      "insertion-cycle-def-follow-up-1h": "2025-01-28T19:00:00.000Z",
+      "insertion-cycle-def-follow-up-3h": "2025-01-28T21:00:00.000Z",
+    });
   });
 
   it("aplica el offset correctamente para la notif de reinserción", () => {
-    // UTC+60 → 08:00 UTC
-    const notifs = planNotifications(COMPLETED_CYCLIC, 60);
-    const n24h = notifs.find((x) => x.id === "insertion-cycle-def-24h");
-    const n0h  = notifs.find((x) => x.id === "insertion-cycle-def-0h");
-    expect(n24h!.triggerAt).toBe("2025-01-27T08:00:00.000Z");
-    expect(n0h!.triggerAt).toBe("2025-01-28T08:00:00.000Z");
+    const t = triggersById(planNotifications(COMPLETED_CYCLIC, fixedOffset(60)));
+    expect(t["insertion-cycle-def-day-before"]).toBe("2025-01-27T11:00:00.000Z");
+    expect(t["insertion-cycle-def-same-day-morning"]).toBe("2025-01-28T08:00:00.000Z");
   });
 });
 
@@ -183,8 +174,97 @@ describe("notificationPlanner — COMPLETED CYCLIC_21_7", () => {
 
 describe("notificationPlanner — COMPLETED CONTINUOUS", () => {
   it("devuelve array vacío para ciclo COMPLETED CONTINUOUS", () => {
-    const notifs = planNotifications(COMPLETED_CONTINUOUS, 0);
-    expect(notifs).toHaveLength(0);
+    expect(planNotifications(COMPLETED_CONTINUOUS, fixedOffset(0))).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Día local ≠ día UTC
+// ---------------------------------------------------------------------------
+
+describe("notificationPlanner — día natural local", () => {
+  it("UTC-5: una retirada a las 20:00 locales cae en el día local, no en el día UTC siguiente", () => {
+    // 2025-01-22T01:00Z = 21 ene a las 20:00 en UTC-5
+    const evening = makeCycle({
+      id: "cycle-evening",
+      insertedAt: "2025-01-01T01:00:00.000Z",
+      plannedRemovalAt: "2025-01-22T01:00:00.000Z",
+    });
+    const t = triggersById(planNotifications(evening, fixedOffset(-300)));
+    expect(t["removal-cycle-evening-day-before"]).toBe("2025-01-20T17:00:00.000Z"); // 20 ene 12:00 local
+    expect(t["removal-cycle-evening-same-day-morning"]).toBe("2025-01-21T14:00:00.000Z"); // 21 ene 09:00 local
+  });
+
+  it("UTC+2: una retirada de madrugada cae en el día local, no en el día UTC anterior", () => {
+    // 2026-07-14T23:30Z = 15 jul a la 01:30 en UTC+2
+    const night = makeCycle({
+      id: "cycle-night",
+      insertedAt: "2026-06-23T23:30:00.000Z",
+      plannedRemovalAt: "2026-07-14T23:30:00.000Z",
+    });
+    const t = triggersById(planNotifications(night, fixedOffset(120)));
+    expect(t["removal-cycle-night-day-before"]).toBe("2026-07-14T10:00:00.000Z"); // 14 jul 12:00 local
+    expect(t["removal-cycle-night-same-day-morning"]).toBeUndefined(); // 15 jul 09:00 es posterior
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cambio de hora (Europe/Madrid)
+// ---------------------------------------------------------------------------
+
+describe("notificationPlanner — cambio de hora", () => {
+  it("retirada después del cambio de octubre: 12:00 y 09:00 en hora de invierno", () => {
+    // Retirada prevista el 26 oct a las 20:00 CET; antes salían a las 11:00 y 08:00.
+    const cycle = makeCycle({
+      id: "cycle-oct",
+      insertedAt: "2026-10-05T18:00:00.000Z",
+      plannedRemovalAt: "2026-10-26T19:00:00.000Z",
+    });
+    expect(triggersById(planNotifications(cycle, MADRID))).toEqual({
+      "removal-cycle-oct-day-before": "2026-10-25T11:00:00.000Z", // 25 oct 12:00 CET
+      "removal-cycle-oct-same-day-morning": "2026-10-26T08:00:00.000Z", // 26 oct 09:00 CET
+      "removal-cycle-oct-pre": "2026-10-26T18:00:00.000Z",
+      "removal-cycle-oct-due": "2026-10-26T19:00:00.000Z",
+      "removal-cycle-oct-follow-up-1h": "2026-10-26T20:00:00.000Z",
+      "removal-cycle-oct-follow-up-3h": "2026-10-26T22:00:00.000Z",
+    });
+  });
+
+  it("retirada el mismo día del cambio: el día antes en verano y el aviso de las 09:00 en invierno", () => {
+    const cycle = makeCycle({
+      id: "cycle-dst-day",
+      insertedAt: "2026-10-04T18:00:00.000Z",
+      plannedRemovalAt: "2026-10-25T19:00:00.000Z", // 25 oct 20:00 CET
+    });
+    const t = triggersById(planNotifications(cycle, MADRID));
+    expect(t["removal-cycle-dst-day-day-before"]).toBe("2026-10-24T10:00:00.000Z"); // 24 oct 12:00 CEST
+    expect(t["removal-cycle-dst-day-same-day-morning"]).toBe("2026-10-25T08:00:00.000Z"); // 25 oct 09:00 CET
+  });
+
+  it("reinserción después del cambio de octubre: 12:00 y 09:00 en hora de invierno", () => {
+    // Retirado el 20 oct a las 20:00 CEST → inserción 7×24 h después (27 oct, 19:00 CET)
+    const cycle = makeCycle({
+      id: "cycle-ins",
+      insertedAt: "2026-09-29T18:00:00.000Z",
+      plannedRemovalAt: "2026-10-20T18:00:00.000Z",
+      removedAt: "2026-10-20T18:00:00.000Z",
+      status: "COMPLETED",
+    });
+    const t = triggersById(planNotifications(cycle, MADRID));
+    expect(t["insertion-cycle-ins-day-before"]).toBe("2026-10-26T11:00:00.000Z"); // 26 oct 12:00 CET
+    expect(t["insertion-cycle-ins-same-day-morning"]).toBe("2026-10-27T08:00:00.000Z"); // 27 oct 09:00 CET
+    expect(t["insertion-cycle-ins-due"]).toBe("2026-10-27T18:00:00.000Z");
+  });
+
+  it("retirada después del cambio de marzo: 12:00 y 09:00 en hora de verano", () => {
+    const cycle = makeCycle({
+      id: "cycle-mar",
+      insertedAt: "2027-03-08T19:00:00.000Z",
+      plannedRemovalAt: "2027-03-29T18:00:00.000Z", // 29 mar 20:00 CEST
+    });
+    const t = triggersById(planNotifications(cycle, MADRID));
+    expect(t["removal-cycle-mar-day-before"]).toBe("2027-03-28T10:00:00.000Z"); // 28 mar 12:00 CEST
+    expect(t["removal-cycle-mar-same-day-morning"]).toBe("2027-03-29T07:00:00.000Z"); // 29 mar 09:00 CEST
   });
 });
 
@@ -196,13 +276,12 @@ describe("notificationPlanner — triggerAt en el pasado", () => {
   it("incluye las notificaciones aunque su triggerAt haya pasado (el scheduler decide si las descarta)", () => {
     const pastCycle = makeCycle({
       id: "cycle-past",
-      insertedAt: "2020-01-01T10:00:00.000Z",
-      plannedRemovalAt: "2020-01-22T00:00:00.000Z",
+      insertedAt: "2020-01-01T20:00:00.000Z",
+      plannedRemovalAt: "2020-01-22T20:00:00.000Z",
       status: "ACTIVE",
     });
-    const notifs = planNotifications(pastCycle, 0);
     // El planner devuelve todas; el scheduler filtra las del pasado
-    expect(notifs).toHaveLength(2);
+    expect(planNotifications(pastCycle, fixedOffset(0))).toHaveLength(6);
   });
 });
 
